@@ -1,17 +1,18 @@
 import 'package:flutter/material.dart';
-<<<<<<< HEAD
-import 'dashboard_page.dart';
-import 'package:provider/provider.dart'; // <-- 1. Import
+import 'pages/dashboard_page.dart';
+import 'package:provider/provider.dart'; 
 import 'providers/challenge_provider.dart'; 
-=======
 import 'pages/landing.dart';
 import 'theme/colors.dart';
 import 'package:go_router/go_router.dart';
 import 'pages/register.dart';
->>>>>>> 4c7c15feebf2766d48462cd01394eaa1726eaeff
 
 void main() {
-  runApp(const MyApp());
+  runApp(ChangeNotifierProvider(
+      create: (context) => ChallengeProvider(),
+      child: MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -29,6 +30,10 @@ class MyApp extends StatelessWidget {
         GoRoute(
           path: '/register',
           builder: (context, state) => const RegisterScreen(),
+        ),
+        GoRoute(
+          path: '/dashboard',
+          builder: (context, state) => const DashboardPage(),
         ),
       ],
     );
