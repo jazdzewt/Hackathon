@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:hackathon_flutter/theme/colors.dart';
 import 'package:go_router/go_router.dart';
-class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+
+class RegisterScreen extends StatefulWidget {
+  const RegisterScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  State<RegisterScreen> createState() => _RegisterScreenState();
 }
 
 class LoginTextStyle {
@@ -15,10 +16,12 @@ class LoginTextStyle {
   );
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _RegisterScreenState extends State<RegisterScreen> {
 
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
+  final TextEditingController usernameController = TextEditingController();
+  final TextEditingController passwordConfirmationController = TextEditingController();
 
   @override
   void dispose() {
@@ -84,10 +87,24 @@ class _HomeScreenState extends State<HomeScreen> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               const Text(
-                                'Logowanie',
+                                'Rejestracja',
                                 style: LoginTextStyle.header,
                               ),
                               const SizedBox(height: 24),
+                              TextFormField(
+                                controller: usernameController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Nazwa użytkownika',
+                                  border: OutlineInputBorder(),
+                                ),
+                                validator: (value) {
+                                  if (value == null || value.trim().isEmpty) {
+                                    return 'Nazwa użytkownika jest wymagana';
+                                  }
+                                  return null;
+                                },
+                              ),
+                              SizedBox(height: 16),
                               TextFormField(
                                 controller: emailController,
                                 decoration: const InputDecoration(
@@ -115,6 +132,25 @@ class _HomeScreenState extends State<HomeScreen> {
                                   }
                                   return null;
                                 },
+                              
+                              ),
+                              const SizedBox(height: 16),
+                              TextFormField(
+                                controller: passwordConfirmationController,
+                                obscureText: true,
+                                decoration: const InputDecoration(
+                                  labelText: 'Powtórz hasło',
+                                  border: OutlineInputBorder(),
+                                ),
+                                validator: (value) {
+                                  if (value == null || value.trim().isEmpty) {
+                                    return 'Hasło jest wymagane';
+                                  }
+                                  if (value != passwordController.text) {
+                                    return 'Hasła nie są takie same';
+                                  }
+                                  return null;
+                                },
                               ),
                               const SizedBox(height: 24),
                               SizedBox(
@@ -128,13 +164,14 @@ class _HomeScreenState extends State<HomeScreen> {
                                       _submitted = true;
                                     });
                                     if (_formKey.currentState?.validate() == true) {
+                                      final username = usernameController.text.trim();
                                       final email = emailController.text.trim();
                                       final password = passwordController.text;
-
-                                      print('Email: $email, Hasło: $password');
+                                      final passwordConfirmation = passwordConfirmationController.text;
+                                      print('Nazwa użytkownika: $username, Hasło: $password, Email: $email, Powtórzone hasło: $passwordConfirmation');
                                     }
                                   },
-                                  child: const Text('Zaloguj', style: TextStyle(color: AppColors.background)),
+                                  child: const Text('Rejestruj', style: TextStyle(color: AppColors.background)),
                                 ),
                               ),
                               const SizedBox(height: 12),
@@ -149,10 +186,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                   overlayColor: WidgetStateProperty.all(Colors.transparent),
                                 ),
                                 onPressed: () {
-                                  GoRouter.of(context).go('/register');
+                                  GoRouter.of(context).go('/');
                                 },
                                 child: const Text(
-                                  'Zarejestruj się',
+                                  'Mam już konto',
                                   style: TextStyle(
                                     decoration: TextDecoration.underline,
                                     fontSize: 14,
