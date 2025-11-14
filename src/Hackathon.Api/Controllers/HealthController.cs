@@ -56,4 +56,32 @@ public class HealthController : ControllerBase
             });
         }
     }
+
+    [HttpGet("storage")]
+    public async Task<IActionResult> GetStorageHealth()
+    {
+        try
+        {
+            // Sprawdź czy Storage działa
+            var buckets = await _supabase.Storage.ListBuckets();
+
+            return Ok(new
+            {
+                status = "✅ Połączenie z Supabase Storage działa!",
+                bucketsCount = buckets?.Count ?? 0,
+                timestamp = DateTime.UtcNow
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Błąd sprawdzania Storage");
+            return Ok(new
+            {
+                status = "❌ Błąd połączenia z Supabase Storage",
+                error = ex.Message,
+                details = ex.InnerException?.Message,
+                timestamp = DateTime.UtcNow
+            });
+        }
+    }
 }

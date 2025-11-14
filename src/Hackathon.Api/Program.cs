@@ -7,7 +7,10 @@ builder.Services.AddControllers();
 
 // Add Swagger/OpenAPI
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.EnableAnnotations();
+});
 
 // Configure Supabase
 var supabaseUrl = builder.Configuration["Supabase:Url"];

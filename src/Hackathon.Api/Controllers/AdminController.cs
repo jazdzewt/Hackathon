@@ -62,6 +62,8 @@ public class AdminController : ControllerBase
     /// Przesyła plik z poprawnymi odpowiedziami (ground truth)
     /// </summary>
     [HttpPost("challenges/{id}/ground-truth")]
+    [Consumes("multipart/form-data")]
+    [ApiExplorerSettings(IgnoreApi = true)] // Ukryj w Swaggerze - użyj Postmana
     public async Task<IActionResult> UploadGroundTruth(int id, [FromForm] IFormFile file)
     {
         if (file == null || file.Length == 0)
