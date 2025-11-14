@@ -21,8 +21,19 @@ public class AuthController : ControllerBase
     [HttpPost("register")]
     public async Task<IActionResult> Register([FromBody] RegisterUserDto dto)
     {
-        // TODO: Implementacja rejestracji
-        return Ok(new { message = "User registered successfully" });
+        try
+        {
+            var response = await _authService.RegisterAsync(dto);
+            return Ok(response);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Registration failed", error = ex.Message });
+        }
     }
 
     /// <summary>
@@ -31,8 +42,19 @@ public class AuthController : ControllerBase
     [HttpPost("login")]
     public async Task<ActionResult<TokenResponseDto>> Login([FromBody] LoginDto dto)
     {
-        // TODO: Implementacja logowania
-        return Ok(new TokenResponseDto("access_token", "refresh_token", DateTime.UtcNow.AddHours(1)));
+        try
+        {
+            var response = await _authService.LoginAsync(dto);
+            return Ok(response);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Login failed", error = ex.Message });
+        }
     }
 
     /// <summary>
@@ -41,8 +63,19 @@ public class AuthController : ControllerBase
     [HttpPost("refresh")]
     public async Task<ActionResult<TokenResponseDto>> Refresh([FromBody] RefreshTokenDto dto)
     {
-        // TODO: Implementacja odświeżania tokenu
-        return Ok(new TokenResponseDto("new_access_token", "new_refresh_token", DateTime.UtcNow.AddHours(1)));
+        try
+        {
+            var response = await _authService.RefreshTokenAsync(dto);
+            return Ok(response);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Token refresh failed", error = ex.Message });
+        }
     }
 
     /// <summary>
@@ -51,8 +84,8 @@ public class AuthController : ControllerBase
     [HttpPost("forgotPassword")]
     public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordDto dto)
     {
-        // TODO: Implementacja wysyłania linku resetującego
-        return Ok(new { message = "Password reset link sent" });
+        await _authService.SendPasswordResetLinkAsync(dto);
+        return Ok(new { message = "If the email exists, a password reset link has been sent" });
     }
 
     /// <summary>
@@ -61,7 +94,35 @@ public class AuthController : ControllerBase
     [HttpPost("resetPassword")]
     public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto dto)
     {
-        // TODO: Implementacja resetowania hasła
-        return Ok(new { message = "Password reset successfully" });
+        try
+        {
+            await _authService.ResetPasswordAsync(dto);
+            return Ok(new { message = "Password reset successfully" });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Password reset failed", error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Wylogowuje użytkownika
+    /// </summary>
+    [HttpPost("logout")]
+    public async Task<IActionResult> Logout()
+    {
+        try
+        {
+            await _authService.LogoutAsync();
+            return Ok(new { message = "Logged out successfully" });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Logout failed", error = ex.Message });
+        }
     }
 }

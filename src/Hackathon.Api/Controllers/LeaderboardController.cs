@@ -36,24 +36,16 @@ public class LeaderboardController : ControllerBase
 
             var results = new List<LeaderboardEntry>();
 
-            // Dla każdego wyniku pobierz informacje o użytkowniku
+            // Dla każdego wyniku - użyj UserId jako nazwy (nie mamy tabeli users)
             foreach (var entry in leaderboardResponse.Models)
             {
-                var userResponse = await _supabase
-                    .From<User>()
-                    .Where(u => u.Id == entry.UserId)
-                    .Single();
-
-                if (userResponse != null)
-                {
-                    results.Add(new LeaderboardEntry(
-                        entry.UserId,
-                        userResponse.Name ?? "Nieznany",
-                        entry.ChallengeId,
-                        entry.BestScore,
-                        entry.LastUpdated
-                    ));
-                }
+                results.Add(new LeaderboardEntry(
+                    entry.UserId,
+                    entry.UserId, // Użyj UserId jako nazwy (możesz później pobrać z Auth API)
+                    entry.ChallengeId,
+                    entry.BestScore,
+                    entry.LastUpdated
+                ));
             }
 
             // Sortuj wyniki (od najwyższego do najniższego)

@@ -9,7 +9,7 @@ namespace Hackathon.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize(Roles = "Admin")]
+[Authorize(Roles = "admin")]
 public class AdminController : ControllerBase
 {
     private readonly IAdminService _adminService;
@@ -85,8 +85,15 @@ public class AdminController : ControllerBase
     [HttpGet("users")]
     public async Task<ActionResult<IEnumerable<UserDto>>> GetAllUsers()
     {
-        // TODO: Implementacja pobierania listy użytkowników
-        return Ok(new List<UserDto>());
+        try
+        {
+            var users = await _adminService.GetAllUsersAsync();
+            return Ok(users);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Error fetching users", error = ex.Message });
+        }
     }
 
     /// <summary>
@@ -95,8 +102,23 @@ public class AdminController : ControllerBase
     [HttpPost("users/{userId}/assign-role")]
     public async Task<IActionResult> AssignRole(string userId, [FromBody] AssignRoleDto dto)
     {
-        // TODO: Implementacja przypisywania roli
-        return Ok(new { message = "Role assigned successfully" });
+        try
+        {
+            await _adminService.AssignRoleAsync(userId, dto.RoleName);
+            return Ok(new { message = $"Role '{dto.RoleName}' assigned successfully to user {userId}" });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Error assigning role", error = ex.Message });
+        }
     }
 
     /// <summary>
@@ -105,8 +127,15 @@ public class AdminController : ControllerBase
     [HttpDelete("users/{userId}")]
     public async Task<IActionResult> DeleteUser(string userId)
     {
-        // TODO: Implementacja usuwania użytkownika
-        return Ok(new { message = "User deleted successfully" });
+        try
+        {
+            await _adminService.DeleteUserAsync(userId);
+            return Ok(new { message = $"User {userId} deleted successfully" });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Error deleting user", error = ex.Message });
+        }
     }
 
     #endregion
