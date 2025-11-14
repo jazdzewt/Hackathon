@@ -25,8 +25,16 @@ public class AuthService : IAuthService
                 throw new ArgumentException("Passwords do not match");
             }
 
-            // Rejestracja przez Supabase Auth
-            var session = await _supabaseClient.Auth.SignUp(dto.Email, dto.Password);
+            // Rejestracja przez Supabase Auth z metadata (display name)
+            var options = new Supabase.Gotrue.SignUpOptions
+            {
+                Data = new Dictionary<string, object>
+                {
+                    { "display_name", dto.Username }
+                }
+            };
+            
+            var session = await _supabaseClient.Auth.SignUp(dto.Email, dto.Password, options);
             
             if (session?.User == null)
             {
@@ -138,18 +146,6 @@ public class AuthService : IAuthService
         catch (Exception ex)
         {
             throw new Exception($"Password reset failed: {ex.Message}", ex);
-        }
-    }
-
-    public async Task LogoutAsync()
-    {
-        try
-        {
-            await _supabaseClient.Auth.SignOut();
-        }
-        catch (Exception ex)
-        {
-            throw new Exception($"Logout failed: {ex.Message}", ex);
         }
     }
 }

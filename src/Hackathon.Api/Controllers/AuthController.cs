@@ -108,21 +108,4 @@ public class AuthController : ControllerBase
             return StatusCode(500, new { message = "Password reset failed", error = ex.Message });
         }
     }
-
-    /// <summary>
-    /// Wylogowuje użytkownika
-    /// </summary>
-    [HttpPost("logout")]
-    public async Task<IActionResult> Logout()
-    {
-        try
-        {
-            await _authService.LogoutAsync();
-            return Ok(new { message = "Logged out successfully" });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new { message = "Logout failed", error = ex.Message });
-        }
-    }
 }

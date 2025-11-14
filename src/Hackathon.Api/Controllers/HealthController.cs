@@ -16,17 +16,6 @@ public class HealthController : ControllerBase
         _logger = logger;
     }
 
-    [HttpGet]
-    public IActionResult GetHealth()
-    {
-        return Ok(new
-        {
-            status = "✅ API działa!",
-            service = "Hackathon.Api",
-            timestamp = DateTime.UtcNow
-        });
-    }
-
     [HttpGet("supabase")]
     public IActionResult GetSupabaseHealth()
     {
@@ -50,34 +39,6 @@ public class HealthController : ControllerBase
             return Ok(new
             {
                 status = "❌ Błąd połączenia z Supabase",
-                error = ex.Message,
-                details = ex.InnerException?.Message,
-                timestamp = DateTime.UtcNow
-            });
-        }
-    }
-
-    [HttpGet("storage")]
-    public async Task<IActionResult> GetStorageHealth()
-    {
-        try
-        {
-            // Sprawdź czy Storage działa
-            var buckets = await _supabase.Storage.ListBuckets();
-
-            return Ok(new
-            {
-                status = "✅ Połączenie z Supabase Storage działa!",
-                bucketsCount = buckets?.Count ?? 0,
-                timestamp = DateTime.UtcNow
-            });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Błąd sprawdzania Storage");
-            return Ok(new
-            {
-                status = "❌ Błąd połączenia z Supabase Storage",
                 error = ex.Message,
                 details = ex.InnerException?.Message,
                 timestamp = DateTime.UtcNow
