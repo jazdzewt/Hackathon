@@ -1,9 +1,18 @@
 using Hackathon.Api.DTOs.Challenges;
+using Hackathon.Api.Models;
+using Supabase;
 
 namespace Hackathon.Api.Services;
 
 public class ChallengeService : IChallengeService
 {
+    private readonly Client _supabaseClient;
+
+    public ChallengeService(Client supabaseClient)
+    {
+        _supabaseClient = supabaseClient;
+    }
+
     public Task<IEnumerable<ChallengeListDto>> GetAllChallengesAsync()
     {
         return Task.FromResult(Enumerable.Empty<ChallengeListDto>());
@@ -19,19 +28,41 @@ public class ChallengeService : IChallengeService
         throw new NotImplementedException();
     }
 
-    public Task<int> CreateChallengeAsync(CreateChallengeDto dto)
+    public async Task CreateChallengeAsync(Challenge challenge)
     {
-        throw new NotImplementedException();
+        await _supabaseClient
+            .From<Challenge>()
+            .Insert(challenge);
     }
 
-    public Task UpdateChallengeAsync(int id, UpdateChallengeDto dto)
+    public async Task UpdateChallengeAsync(string id, UpdateChallengeDto dto)
     {
-        throw new NotImplementedException();
+        var existing = await _supabaseClient
+            .From<Challenge>()
+            .Where(c => c.Id == id)
+            .Single();
+
+        if (existing == null)
+        {
+            throw new KeyNotFoundException($"Challenge with id {id} not found");
+        }
+
+        if (!string.IsNullOrEmpty(dto.Name)) existing.Title = dto.Name;
+        if (!string.IsNullOrEmpty(dto.FullDescription)) existing.Description = dto.FullDescription;
+        if (!string.IsNullOrEmpty(dto.EvaluationMetric)) existing.EvaluationMetric = dto.EvaluationMetric;
+        if (dto.EndDate.HasValue) existing.SubmissionDeadline = dto.EndDate.Value;
+
+        await _supabaseClient
+            .From<Challenge>()
+            .Update(existing);
     }
 
-    public Task DeleteChallengeAsync(int id)
+    public async Task DeleteChallengeAsync(string id)
     {
-        throw new NotImplementedException();
+        await _supabaseClient
+            .From<Challenge>()
+            .Where(c => c.Id == id)
+            .Delete();
     }
 
     public Task UploadGroundTruthAsync(int id, Stream fileStream, string fileName)
