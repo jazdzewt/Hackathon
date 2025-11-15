@@ -22,6 +22,7 @@ class ChallengeUserPage extends StatefulWidget {
 // 2. POPRAWIONA DEKLARACJA STANU
 class _ChallengeUserPageState extends State<ChallengeUserPage> {
   Map<String, dynamic>? _challengeData;
+  List<Map<String, dynamic>>? _leaderboardData;
   bool _isLoading = true;
   String? _selectedFileName;
   html.File? _selectedFile;
@@ -34,9 +35,12 @@ class _ChallengeUserPageState extends State<ChallengeUserPage> {
 
   Future<void> _loadChallengeDetails() async {
     final data = await context.read<ChallengeProvider>().fetchChallengeById(widget.challengeId);
+    final leaderboard = await context.read<ChallengeProvider>().fetchLeaderboard(widget.challengeId);
+    
     if (mounted) {
       setState(() {
         _challengeData = data;
+        _leaderboardData = leaderboard;
         _isLoading = false;
       });
     }
@@ -251,14 +255,26 @@ class _ChallengeUserPageState extends State<ChallengeUserPage> {
   }
 
   Widget _buildLeaderboard() {
-    // Przykładowe dane leaderboard
-    final List<Map<String, dynamic>> leaderboardData = [
-      {'rank': 1, 'name': 'Jan Kowalski', 'score': 950},
-      {'rank': 2, 'name': 'Anna Nowak', 'score': 920},
-      {'rank': 3, 'name': 'Piotr Wiśniewski', 'score': 890},
-      {'rank': 4, 'name': 'Maria Dąbrowska', 'score': 870},
-      {'rank': 5, 'name': 'Tomasz Lewandowski', 'score': 850},
-    ];
+    // Sprawdź, czy dane leaderboardu są dostępne
+    if (_leaderboardData == null || _leaderboardData!.isEmpty) {
+      return Card(
+        elevation: 4,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Center(
+            child: Text(
+              'Brak danych w leaderboardzie',
+              style: TextStyle(color: Colors.grey),
+            ),
+          ),
+        ),
+      );
+    }
+
+    final List<Map<String, dynamic>> leaderboardData = _leaderboardData!;
 
     return Card(
       elevation: 4,
@@ -307,11 +323,16 @@ class _ChallengeUserPageState extends State<ChallengeUserPage> {
             const SizedBox(height: 8),
             // Entries
             ...leaderboardData.map((entry) {
-              final isTop3 = entry['rank'] <= 3;
+              final int rank = entry['rank'] ?? 0;
+              final String displayName = entry['username'] ?? 'Nieznany';
+              final dynamic bestScore = entry['bestScore'];
+              final String scoreDisplay = bestScore == null ? 'Brak' : bestScore.toString();
+              
+              final isTop3 = rank <= 3;
               Color? medalColor;
-              if (entry['rank'] == 1) medalColor = Colors.amber;
-              if (entry['rank'] == 2) medalColor = Colors.grey[400];
-              if (entry['rank'] == 3) medalColor = Colors.brown[300];
+              if (rank == 1) medalColor = Colors.amber;
+              if (rank == 2) medalColor = Colors.grey[400];
+              if (rank == 3) medalColor = Colors.brown[300];
 
               return Container(
                 margin: const EdgeInsets.symmetric(vertical: 4),
@@ -338,7 +359,7 @@ class _ChallengeUserPageState extends State<ChallengeUserPage> {
                             ),
                           const SizedBox(width: 4),
                           Text(
-                            '${entry['rank']}',
+                            '$rank',
                             style: TextStyle(
                               fontWeight: isTop3 ? FontWeight.bold : FontWeight.normal,
                             ),
@@ -350,20 +371,21 @@ class _ChallengeUserPageState extends State<ChallengeUserPage> {
                     Expanded(
                       flex: 3,
                       child: Text(
-                        entry['name'],
+                        displayName,
                         style: TextStyle(
                           fontWeight: isTop3 ? FontWeight.bold : FontWeight.normal,
                         ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     Expanded(
                       flex: 2,
                       child: Text(
-                        '${entry['score']}',
+                        scoreDisplay,
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
-                          color: AppColors.primary,
+                          color: bestScore == null ? Colors.grey : AppColors.primary,
                         ),
                       ),
                     ),

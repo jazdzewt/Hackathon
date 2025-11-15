@@ -36,30 +36,24 @@ public class LeaderboardService : ILeaderboardService
             .Take(topN)
             .ToList();
 
-        // 3. Pobierz display names i utwórz wpisy leaderboard
+        // 3. Pobierz unique user IDs
+        var uniqueUserIds = sorted.Select(s => s.UserId).Distinct().ToList();
+        
+        // 4. Pobierz display names dla wszystkich użytkowników
+        var userDisplayNames = new Dictionary<string, string>();
+        foreach (var userId in uniqueUserIds)
+        {
+            string displayName = await GetUserDisplayNameAsync(userId);
+            userDisplayNames[userId] = displayName;
+        }
+
+        // 5. Utwórz wpisy leaderboard
         var leaderboard = new List<LeaderboardEntryDto>();
         int rank = 1;
 
         foreach (var submission in sorted)
         {
-            // Pobierz display_name z Supabase Auth
-            string displayName = submission.UserId; // fallback to userId
-            try
-            {
-                var response = await _supabaseClient.Rpc("get_user_display_name", new Dictionary<string, object>
-                {
-                    { "user_uid", submission.UserId }
-                });
-                
-                if (response != null)
-                {
-                    displayName = response.ToString() ?? submission.UserId;
-                }
-            }
-            catch
-            {
-                displayName = submission.UserId;
-            }
+            var displayName = userDisplayNames.GetValueOrDefault(submission.UserId, submission.UserId);
 
             leaderboard.Add(new LeaderboardEntryDto(
                 Rank: rank++,
@@ -72,6 +66,44 @@ public class LeaderboardService : ILeaderboardService
         }
 
         return leaderboard;
+    }
+
+    private async Task<string> GetUserDisplayNameAsync(string userId)
+    {
+        try
+        {
+            Console.WriteLine($"[LEADERBOARD] Fetching display name for user: {userId}");
+            
+            var rpcParams = new Dictionary<string, object>
+            {
+                { "user_uid", userId }
+            };
+            
+            var result = await _supabaseClient.Rpc("get_user_email", rpcParams);
+            
+            Console.WriteLine($"[LEADERBOARD] RPC result type: {result?.GetType().Name}");
+            Console.WriteLine($"[LEADERBOARD] RPC result content: {result?.Content}");
+            
+            if (result != null && result.Content != null)
+            {
+                // Usuń cudzysłowy z JSON stringa jeśli są
+                var displayName = result.Content.Trim('"');
+                Console.WriteLine($"[LEADERBOARD] Display name for {userId}: {displayName}");
+                
+                if (!string.IsNullOrEmpty(displayName) && displayName != "null")
+                {
+                    return displayName;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[LEADERBOARD] Error fetching user display name for {userId}: {ex.Message}");
+            Console.WriteLine($"[LEADERBOARD] Stack trace: {ex.StackTrace}");
+        }
+        
+        Console.WriteLine($"[LEADERBOARD] Falling back to userId: {userId}");
+        return userId;
     }
 
     public Task FreezeLeaderboardAsync(int challengeId)
