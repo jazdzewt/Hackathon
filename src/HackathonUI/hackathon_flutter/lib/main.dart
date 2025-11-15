@@ -7,6 +7,7 @@ import 'theme/colors.dart';
 import 'package:go_router/go_router.dart';
 import 'pages/register.dart';
 import 'services/token_storage.dart';
+import 'pages/challenge_user_page.dart';
 
 void main() {
   runApp(ChangeNotifierProvider(
@@ -36,13 +37,13 @@ class MyApp extends StatelessWidget {
           path: '/dashboard',
           builder: (context, state) => const DashboardPage(),
         ),
-        // GoRoute(
-        //   path: '/challenge/:id', // id param
-        //   builder: (context, state) {
-        //     final challengeId = state.pathParameters['id']!;
-        //     return ChallengeDetailPage(challengeId: challengeId);
-        //   },
-        // ),
+        GoRoute(
+          path: '/challenge/:id', // id param
+          builder: (context, state) {
+            final challengeId = state.pathParameters['id']!;
+            return ChallengeUserPage(challengeId: challengeId);
+          },
+        ),
       ],
       redirect: (context, state) async {
         final String location = state.matchedLocation;
