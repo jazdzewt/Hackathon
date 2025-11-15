@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';  
 import '../providers/challenge_provider.dart';
+import 'package:go_router/go_router.dart';
+
 
 class Challenge {
   final String id;
@@ -12,7 +14,7 @@ class Challenge {
   factory Challenge.fromJson(Map<String, dynamic> json) {
     return Challenge(
       id: json['id'],
-      title: json['name'],
+      title: json['title'],
       description: json['description'],
     );
   }
