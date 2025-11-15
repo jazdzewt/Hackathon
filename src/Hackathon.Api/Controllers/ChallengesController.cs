@@ -1,6 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Hackathon.Api.Models;
 using Hackathon.Api.DTOs;
+using Hackathon.Api.DTOs.Challenges;
+using Hackathon.Api.Services;
 using Supabase;
 
 namespace Hackathon.Api.Controllers;
@@ -10,11 +13,13 @@ namespace Hackathon.Api.Controllers;
 public class ChallengesController : ControllerBase
 {
     private readonly Client _supabase;
+    private readonly IChallengeService _challengeService;
     private readonly ILogger<ChallengesController> _logger;
 
-    public ChallengesController(Client supabase, ILogger<ChallengesController> logger)
+    public ChallengesController(Client supabase, IChallengeService challengeService, ILogger<ChallengesController> logger)
     {
         _supabase = supabase;
+        _challengeService = challengeService;
         _logger = logger;
     }
 
@@ -90,6 +95,50 @@ public class ChallengesController : ControllerBase
         {
             _logger.LogError(ex, "Błąd pobierania wyzwania");
             return BadRequest(new { error = "Błąd pobierania wyzwania", details = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Aktualizuje wyzwanie (wymaga autoryzacji)
+    /// </summary>
+    [HttpPut("{id}")]
+    [Authorize]
+    public async Task<IActionResult> UpdateChallenge(string id, [FromBody] UpdateChallengeDto dto)
+    {
+        try
+        {
+            await _challengeService.UpdateChallengeAsync(id, dto);
+            return Ok(new { message = "Challenge updated successfully" });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Error updating challenge", error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Usuwa wyzwanie (wymaga autoryzacji)
+    /// </summary>
+    [HttpDelete("{id}")]
+    [Authorize]
+    public async Task<IActionResult> DeleteChallenge(string id)
+    {
+        try
+        {
+            await _challengeService.DeleteChallengeAsync(id);
+            return Ok(new { message = "Challenge deleted successfully" });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Error deleting challenge", error = ex.Message });
         }
     }
 }
