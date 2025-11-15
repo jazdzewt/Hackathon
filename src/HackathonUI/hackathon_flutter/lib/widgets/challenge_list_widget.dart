@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';  
 import '../providers/challenge_provider.dart';
 import 'package:go_router/go_router.dart';
+import '../theme/colors.dart';
 
 class Challenge {
   final String id;
@@ -50,6 +51,7 @@ class ChallengeListWidget extends StatelessWidget {
             final challenge = challenges[index];
             return Card(
               margin: const EdgeInsets.symmetric(vertical: 8.0),
+              color: AppColors.background,
               child: ListTile(
                 title: Text(challenge.title,
                     style: const TextStyle(fontWeight: FontWeight.bold)),
