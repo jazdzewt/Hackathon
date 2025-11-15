@@ -5,6 +5,7 @@ using Hackathon.Api.DTOs.Admin;
 using Hackathon.Api.DTOs.Challenges;
 using Hackathon.Api.DTOs.Submissions;
 using Hackathon.Api.Services;
+using Supabase;
 
 namespace Hackathon.Api.Controllers;
 
@@ -19,19 +20,22 @@ public class AdminController : ControllerBase
     private readonly ISubmissionService _submissionService;
     private readonly IScoringService _scoringService;
     private readonly ILogger<AdminController> _logger;
+    private readonly Client _supabaseClient;
 
     public AdminController(
         IAdminService adminService,
         IChallengeService challengeService,
         ISubmissionService submissionService,
         IScoringService scoringService,
-        ILogger<AdminController> logger)
+        ILogger<AdminController> logger,
+        Client supabaseClient)
     {
         _adminService = adminService;
         _challengeService = challengeService;
         _submissionService = submissionService;
         _scoringService = scoringService;
         _logger = logger;
+        _supabaseClient = supabaseClient;
     }
 
     #region Challenge Management
@@ -353,6 +357,38 @@ public class AdminController : ControllerBase
     }
 
     /// <summary>
+    /// Pobiera plik submission (tylko admin)
+    /// </summary>
+    [HttpGet("submissions/{submissionId}/download")]
+    public async Task<IActionResult> DownloadSubmission(string submissionId)
+    {
+        try
+        {
+            var submission = await _supabaseClient
+                .From<Models.Submission>()
+                .Where(s => s.Id == submissionId)
+                .Single();
+
+            if (submission == null)
+            {
+                return NotFound(new { error = "Submission not found" });
+            }
+
+            // Pobierz plik z URL
+            using var httpClient = new HttpClient();
+            var fileBytes = await httpClient.GetByteArrayAsync(submission.FileUrl);
+
+            var contentType = GetContentType(Path.GetExtension(submission.FileName));
+            return File(fileBytes, contentType, submission.FileName);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Error downloading submission {submissionId}");
+            return StatusCode(500, new { error = "Error downloading submission", details = ex.Message });
+        }
+    }
+
+    /// <summary>
     /// Wymusza ponowne automatyczne przeliczenie wyniku zgłoszenia
     /// </summary>
     [HttpPost("submissions/{submissionId}/reevaluate")]
@@ -385,6 +421,22 @@ public class AdminController : ControllerBase
     {
         // TODO: Implementacja zamrażania rankingu
         return Ok(new { message = "Leaderboard frozen successfully" });
+    }
+
+    #endregion
+
+    #region Helper Methods
+
+    private static string GetContentType(string fileExtension)
+    {
+        return fileExtension.ToLowerInvariant() switch
+        {
+            ".csv" => "text/csv",
+            ".json" => "application/json",
+            ".txt" => "text/plain",
+            ".zip" => "application/zip",
+            _ => "application/octet-stream"
+        };
     }
 
     #endregion

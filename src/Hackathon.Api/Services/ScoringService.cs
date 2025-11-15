@@ -19,18 +19,28 @@ public class ScoringService : IScoringService
 
     public async Task<decimal> EvaluateSubmissionAsync(string submissionId)
     {
+        // Pobierz submission
+        var response = await _supabaseClient
+            .From<Submission>()
+            .Where(s => s.Id == submissionId)
+            .Get();
+
+        var submission = response.Models.FirstOrDefault();
+
+        if (submission == null)
+        {
+            _logger.LogError($"Submission {submissionId} not found in database");
+            throw new KeyNotFoundException($"Submission {submissionId} not found");
+        }
+
+        return await EvaluateSubmissionAsync(submission);
+    }
+
+    public async Task<decimal> EvaluateSubmissionAsync(Submission submission)
+    {
         try
         {
-            // 1. Pobierz submission
-            var submission = await _supabaseClient
-                .From<Submission>()
-                .Where(s => s.Id == submissionId)
-                .Single();
-
-            if (submission == null)
-            {
-                throw new KeyNotFoundException($"Submission {submissionId} not found");
-            }
+            _logger.LogInformation($"Starting evaluation for submission {submission.Id}");
 
             // 2. Zaktualizuj status na "processing"
             submission.Status = "processing";
@@ -60,35 +70,59 @@ public class ScoringService : IScoringService
             // 6. Oblicz hash submission (dla deterministyczności)
             submission.FileHash = CalculateFileHash(submissionFile);
 
-            // 7. Oblicz score
+            // 6b. Anti-cheat: Validate row count
             var fileExtension = Path.GetExtension(submission.FileName);
+            var submissionRowCount = CountRows(submissionFile, fileExtension);
+            var groundTruthRowCount = CountRows(groundTruthFile, fileExtension);
+            
+            submission.RowCount = submissionRowCount;
+            
+            if (submissionRowCount != groundTruthRowCount)
+            {
+                throw new ArgumentException($"Row count mismatch: submission has {submissionRowCount} rows, expected {groundTruthRowCount}");
+            }
+
+            // 7. Oblicz score
             var score = await CalculateScoreAsync(submissionFile, groundTruthFile, challenge.EvaluationMetric, fileExtension);
 
-            // 8. Zapisz wynik
+            // 8. Anti-cheat: Flag suspicious perfect or near-perfect scores
+            bool isSuspicious = score >= 99.5m;
+            submission.IsSuspicious = isSuspicious;
+            
+            if (isSuspicious)
+            {
+                _logger.LogWarning($"Suspicious score detected for submission {submission.Id}: {score}% (flagged for manual review)");
+            }
+
+            // 9. Zapisz wynik
             submission.Score = score;
             submission.Status = "completed";
 
             await _supabaseClient.From<Submission>().Update(submission);
 
-            _logger.LogInformation($"Submission {submissionId} evaluated with score: {score}");
+            // 9. Aktualizuj leaderboard
+            await UpdateLeaderboardAsync(submission.UserId, submission.ChallengeId, score, submission.Id);
+
+            _logger.LogInformation($"Submission {submission.Id} evaluated with score: {score}");
 
             return score;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, $"Error evaluating submission {submissionId}");
+            _logger.LogError(ex, $"Error evaluating submission {submission.Id}");
 
             // Zaktualizuj status na "failed"
-            var submission = await _supabaseClient
+            var submissionToUpdate = await _supabaseClient
                 .From<Submission>()
-                .Where(s => s.Id == submissionId)
-                .Single();
+                .Where(s => s.Id == submission.Id)
+                .Get();
 
-            if (submission != null)
+            var sub = submissionToUpdate.Models.FirstOrDefault();
+            if (sub != null)
             {
-                submission.Status = "failed";
-                submission.ErrorMessage = ex.Message;
-                await _supabaseClient.From<Submission>().Update(submission);
+                sub.Status = "failed";
+                sub.ErrorMessage = ex.Message;
+                await _supabaseClient.From<Submission>().Update(sub);
             }
 
             throw;
@@ -319,5 +353,54 @@ public class ScoringService : IScoringService
         using var sha256 = SHA256.Create();
         var hashBytes = sha256.ComputeHash(fileData);
         return Convert.ToHexString(hashBytes).ToLowerInvariant();
+    }
+
+    private int CountRows(byte[] fileData, string fileExtension)
+    {
+        var content = Encoding.UTF8.GetString(fileData);
+        
+        return fileExtension.ToLowerInvariant() switch
+        {
+            ".csv" or ".txt" => content.Split('\n', StringSplitOptions.RemoveEmptyEntries).Length - 1, // -1 for header
+            ".json" => JsonDocument.Parse(fileData).RootElement.GetProperty("predictions").GetArrayLength(),
+            _ => 0
+        };
+    }
+
+    private async Task UpdateLeaderboardAsync(string userId, string challengeId, decimal score, string submissionId)
+    {
+        // Sprawdź czy użytkownik już ma wpis w leaderboard dla tego challenge
+        var existingEntry = await _supabaseClient
+            .From<Leaderboard>()
+            .Where(l => l.UserId == userId)
+            .Where(l => l.ChallengeId == challengeId)
+            .Single();
+
+        if (existingEntry == null)
+        {
+            // Nowy wpis
+            var newEntry = new Leaderboard
+            {
+                Id = Guid.NewGuid().ToString(),
+                UserId = userId,
+                ChallengeId = challengeId,
+                BestScore = score,
+                SubmissionId = submissionId,
+                LastUpdated = DateTime.UtcNow
+            };
+
+            await _supabaseClient.From<Leaderboard>().Insert(newEntry);
+            _logger.LogInformation($"New leaderboard entry created for user {userId} in challenge {challengeId} with score {score}");
+        }
+        else if (score > existingEntry.BestScore)
+        {
+            // Aktualizuj jeśli nowy wynik jest lepszy
+            existingEntry.BestScore = score;
+            existingEntry.SubmissionId = submissionId;
+            existingEntry.LastUpdated = DateTime.UtcNow;
+
+            await _supabaseClient.From<Leaderboard>().Update(existingEntry);
+            _logger.LogInformation($"Leaderboard updated for user {userId} in challenge {challengeId}: {existingEntry.BestScore} -> {score}");
+        }
     }
 }

@@ -2,8 +2,10 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../widgets/challenge_list_widget.dart';
 import 'dart:convert';
+import 'dart:async';
 import 'package:http/http.dart' as http;
-import '../services/token_storage.dart'; 
+import '../services/token_storage.dart';
+import 'dart:html' as html; 
 
 // ten provider zarządza stanem wyzwań i paginacją
 // korzysta z SharedPreferences do cachowania bieżącej strony i zapiswania jej stanu za każdym razem, gdy użytkownik zmienia stronę
@@ -110,6 +112,21 @@ class ChallengeProvider with ChangeNotifier {
     }
   }
 
+  Future<void> forceRefreshChallenges() async {
+      _challengesLoaded = false; // To jest klucz! Resetujemy flagę cache'u.
+      _allChallenges.clear(); // Czyścimy starą listę.
+      _currentPage = 1; // Wracamy na pierwszą stronę.
+      _stateLoaded = false; // Wymuś ponowne wczytanie stanu (strony)
+
+      // Opcjonalnie: wyczyść zapamiętaną stronę z cache'u
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_pageCacheKey);
+
+      print('[ChallengeProvider] Pamięć cache unieważniona. Gotowy do odświeżenia.');
+      // Nie trzeba wołać notifyListeners() ani loadChallengesFromApi() tutaj.
+      // Zrobi to 'loadStateFromCache()' na DashboardPage.
+    }
+
   // cachowanie danych o stronie
   /// Wczytuje ostatnio zapisany numer strony z pamięci przeglądarki
   Future<void> loadStateFromCache() async {
@@ -193,6 +210,76 @@ class ChallengeProvider with ChangeNotifier {
     } catch (e) {
       print('Błąd zapytania /api/Challenges/$challengeId: $e');
       return null;
+    }
+  }
+
+  /// Przesyła rozwiązanie (plik) do wyzwania
+  /// Zwraca null jeśli sukces, lub String z komunikatem błędu
+  Future<String?> submitSolution(String challengeId, html.File file) async {
+    final token = await TokenStorage.getToken();
+    if (token == null) {
+      return 'Brak tokenu autoryzacji';
+    }
+
+    print('=== SUBMIT SOLUTION DEBUG ===');
+    print('Challenge ID: $challengeId');
+    print('File name: ${file.name}');
+    print('Token: ${token.substring(0, 20)}...');
+    
+    final url = 'http://localhost:5043/api/Submissions/challenges/$challengeId/submit';
+    print('URL: $url');
+    
+    try {
+      final formData = html.FormData();
+      formData.appendBlob('File', file, file.name);  // Spróbuj z wielką literą
+      
+      print('FormData created with field: File');
+
+      final xhr = html.HttpRequest();
+      xhr.open('POST', url);
+      xhr.setRequestHeader('Authorization', 'Bearer $token');
+      
+      print('XHR request prepared, sending...');
+      
+      final completer = Completer<String?>();
+      
+      xhr.onLoad.listen((event) {
+        print('XHR Status: ${xhr.status}');
+        print('XHR Response: ${xhr.responseText}');
+        
+        if (xhr.status == 200 || xhr.status == 201) {
+          completer.complete(null);
+        } else {
+          // Zwróć cały JSON jako błąd
+          final responseText = xhr.responseText ?? 'Brak odpowiedzi';
+          String errorMessage = responseText.isEmpty ? 'Błąd ${xhr.status}' : responseText;
+          
+          // Spróbuj wyciągnąć pole 'error' z JSON
+          try {
+            final data = json.decode(responseText);
+            if (data is Map && data.containsKey('error')) {
+              errorMessage = data['error'].toString();
+              print('Extracted error field: $errorMessage');
+            }
+          } catch (e) {
+            print('Could not parse error JSON: $e');
+          }
+          
+          completer.complete(errorMessage);
+        }
+      });
+
+      xhr.onError.listen((event) {
+        print('XHR Error: $event');
+        completer.complete('Błąd połączenia');
+      });
+
+      xhr.send(formData);
+      return await completer.future;
+      
+    } catch (e) {
+      print('Exception: $e');
+      return 'Wyjątek: $e';
     }
   }
 }

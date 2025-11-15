@@ -102,6 +102,7 @@ public class ChallengeService : IChallengeService
         if (!string.IsNullOrEmpty(dto.FullDescription)) existing.Description = dto.FullDescription;
         if (!string.IsNullOrEmpty(dto.EvaluationMetric)) existing.EvaluationMetric = dto.EvaluationMetric;
         if (dto.EndDate.HasValue) existing.SubmissionDeadline = dto.EndDate.Value;
+        existing.IsActive = dto.IsActive;
 
         await _supabaseClient
             .From<Challenge>()

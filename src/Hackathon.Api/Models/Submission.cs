@@ -38,4 +38,10 @@ public class Submission : BaseModel
 
     [Column("submitted_at")]
     public DateTime SubmittedAt { get; set; } = DateTime.UtcNow;
+
+    [Column("is_suspicious")]
+    public bool? IsSuspicious { get; set; }
+
+    [Column("row_count")]
+    public int? RowCount { get; set; }
 }

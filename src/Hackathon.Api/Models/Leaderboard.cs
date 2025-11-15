@@ -7,7 +7,7 @@ namespace Hackathon.Api.Models;
 public class Leaderboard : BaseModel
 {
     [PrimaryKey("id", false)]
-    public string Id { get; set; } = Guid.NewGuid().ToString();
+    public string Id { get; set; } = string.Empty;
 
     [Column("user_id")]
     public string UserId { get; set; } = string.Empty;

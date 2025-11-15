@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart'; // Do formatowania dat
+import 'package:provider/provider.dart';
+import '../providers/challenge_provider.dart';
 
 // WAŻNE: Popraw tę ścieżkę, jeśli jest inna!
 import '../services/token_storage.dart';
@@ -247,57 +249,64 @@ class _ChallengeAdminPageState extends State<ChallengeAdminPage> {
 
   /// Zapisuje zmiany w wyzwaniu (PUT)
   Future<void> _saveChallenge({bool exit = false}) async {
-    if (!_formKey.currentState!.validate()) return;
+  // 1. Walidacja formularza (bez zmian)
+  if (!_formKey.currentState!.validate()) return;
 
-    setState(() => _isSaving = true);
-    final token = await _getToken();
-    if (token == null) return;
-
-    // Zaktualizuj obiekt _challenge danymi z kontrolerów
-    _challenge!.title = _titleController.text;
-    _challenge!.description = _descriptionController.text;
-    _challenge!.evaluationMetric = _metricController.text;
-    _challenge!.datasetUrl = _datasetUrlController.text;
-    _challenge!.submissionDeadline = _selectedDeadline;
-
-    try {
-      // Endpoint zgodny z Twoją nową dokumentacją
-      final response = await http.put(
-        Uri.parse('$_apiBaseUrl/Admin/challenges/${widget.challengeId}'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-        body: {
-            "name": _challenge!.title,
-            "shortDescription": "",
-            "fullDescription": _challenge!.description,
-            "rules": "",
-            "evaluationMetric": _challenge!.evaluationMetric,
-            "startDate": "",
-            "endDate": _challenge!.submissionDeadline,
-            "isActive": true
-},
-      );
-
-      if (response.statusCode == 200 || response.statusCode == 204) {
-        setState(() => _isEditing = false);
-        if (exit && context.mounted) {
-          context.go('/dashboard');
-        }
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Zapisano pomyślnie!'),
-              backgroundColor: Colors.green),
-        );
-      } else {
-        _showError('Błąd zapisu: ${response.statusCode} - ${response.body}');
-      }
-    } catch (e) {
-      _showError('Błąd sieci: $e');
-    }
-    setState(() => _isSaving = false);
+  setState(() => _isSaving = true);
+  final token = await _getToken();
+  if (token == null) {
+    setState(() => _isSaving = false); // Upewnij się, że odblokujesz UI
+    return;
   }
+
+
+  final Map<String, dynamic> jsonBody = {
+    // Mapujemy pola z formularza na pola oczekiwane przez API
+    "name": _titleController.text,
+    "fullDescription": _descriptionController.text,
+    "evaluationMetric": _metricController.text,
+    "endDate": _selectedDeadline.toIso8601String(), // Poprawny format daty
+    "isActive": _challenge?.isActive ?? true, // Użyj istniejącej wartości
+
+
+    "shortDescription": _descriptionController.text.length > 100
+        ? _descriptionController.text.substring(0, 100)
+        : _descriptionController.text, // Tymczasowe obejście
+    "rules": "TODO: Dodaj pole 'rules' do formularza", // Tymczasowe
+    "startDate": DateTime.now().toIso8601String() // Tymczasowe
+  };
+
+  try {
+    final response = await http.put(
+      Uri.parse('$_apiBaseUrl/Admin/challenges/${widget.challengeId}'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+
+      body: json.encode(jsonBody),
+    );
+
+    if (response.statusCode == 200 || response.statusCode == 204) {
+      setState(() => _isEditing = false);
+      if (exit && context.mounted) {
+        context.read<ChallengeProvider>().forceRefreshChallenges();
+        context.go('/dashboard');
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Zapisano pomyślnie!'),
+            backgroundColor: Colors.green),
+      );
+    } else {
+      // Błąd 400 (Bad Request) lub inny
+      _showError('Błąd zapisu: ${response.statusCode} - ${response.body}');
+    }
+  } catch (e) {
+    _showError('Błąd sieci: $e');
+  }
+  setState(() => _isSaving = false);
+}
 
   /// Usuwa wyzwanie (DELETE)
   Future<void> _deleteChallenge() async {
@@ -484,24 +493,6 @@ class _ChallengeAdminPageState extends State<ChallengeAdminPage> {
                 foregroundColor: Colors.white),
             onPressed: () => setState(() => _isEditing = !_isEditing),
           ),
-          // Przycisk ZAPISZ
-        //   ElevatedButton.icon(
-        //     icon: _isSaving
-        //         ? const SizedBox(
-        //             width: 20,
-        //             height: 20,
-        //             child: CircularProgressIndicator(
-        //                 strokeWidth: 2, color: Colors.white))
-        //         : const Icon(Icons.save),
-        //     label: const Text('Zapisz'),
-        //     style: ElevatedButton.styleFrom(
-        //         backgroundColor: Theme.of(context).colorScheme.primary,
-        //         foregroundColor: Colors.white),
-        //     onPressed: _isEditing
-        //         ? () => _saveChallenge(exit: false)
-        //         : null, // Włączony tylko w trybie edycji
-        //   ),
-          // Przycisk ZAPISZ I WYJDŹ
           ElevatedButton.icon(
             icon: const Icon(Icons.save_as),
             label: const Text('Zapisz i Wyjdź'),
@@ -509,6 +500,17 @@ class _ChallengeAdminPageState extends State<ChallengeAdminPage> {
                 backgroundColor: Theme.of(context).colorScheme.primary,
                 foregroundColor: Colors.white),
             onPressed: _isEditing ? () => _saveChallenge(exit: true) : null,
+          ),
+          // Przycisk ZAPISZ I WYJDŹ
+          ElevatedButton.icon(
+            icon: const Icon(Icons.arrow_back),
+            label: const Text('Wróć'),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Colors.white),
+            onPressed: () {
+            context.go('/dashboard');
+          },
           ),
           // Przycisk USUŃ
           ElevatedButton.icon(
