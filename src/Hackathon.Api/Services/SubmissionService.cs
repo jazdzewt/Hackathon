@@ -43,10 +43,15 @@ public class SubmissionService : ISubmissionService
         }
 
         // 2. Walidacja pliku
-        var fileExtension = Path.GetExtension(file.FileName);
-        if (challenge.AllowedFileTypes != null && !challenge.AllowedFileTypes.Contains(fileExtension))
+        var fileExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (challenge.AllowedFileTypes != null && challenge.AllowedFileTypes.Length > 0)
         {
-            throw new ArgumentException($"File type {fileExtension} is not allowed for this challenge");
+            // Obsługuj zarówno ".csv" jak i "csv"
+            var normalizedTypes = challenge.AllowedFileTypes.Select(t => t.StartsWith(".") ? t : "." + t).Select(t => t.ToLowerInvariant());
+            if (!normalizedTypes.Contains(fileExtension))
+            {
+                throw new ArgumentException($"File type {fileExtension} is not allowed for this challenge");
+            }
         }
 
         var fileSizeMb = file.Length / (1024.0m * 1024.0m);
