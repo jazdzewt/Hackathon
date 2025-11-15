@@ -9,19 +9,17 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 
 class ChallengeUserPage extends StatefulWidget {
-  // 1. Odbieramy 'challengeId' przekazane z routera
   final String challengeId;
   
   const ChallengeUserPage({
     super.key,
-    required this.challengeId, // Jest to wymagane
+    required this.challengeId,
   });
 
   @override
   State<ChallengeUserPage> createState() => _ChallengeUserPageState();
 }
 
-// 2. POPRAWIONA DEKLARACJA STANU
 class _ChallengeUserPageState extends State<ChallengeUserPage> {
   Map<String, dynamic>? _challengeData;
   List<Map<String, dynamic>>? _leaderboardData;
@@ -53,14 +51,13 @@ class _ChallengeUserPageState extends State<ChallengeUserPage> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        // 3. Używamy 'widget.challengeId', aby pokazać ID w tytule
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
             context.go('/dashboard');
           },
         ),
-        title: Text('Wyzwanie #${widget.challengeId}'),
+        title: Text('Challenge #${widget.challengeId}'),
         centerTitle: true,
         actions: [
           Padding(
@@ -69,13 +66,12 @@ class _ChallengeUserPageState extends State<ChallengeUserPage> {
               onPressed: () async {
                 await TokenStorage.deleteToken();
                 if (context.mounted) {
-                  // Wracamy do strony logowania/głównej
-                  context.go('/'); 
+                  context.go('/');
                 }
               },
               icon: const Icon(Icons.logout, color: Colors.white),
               label: const Text(
-                'Wyloguj się',
+                'Log out',
                 style: TextStyle(color: Colors.white),
               ),
             ),
@@ -93,13 +89,13 @@ class _ChallengeUserPageState extends State<ChallengeUserPage> {
     
     if (_challengeData == null) {
       return const Center(
-        child: Text('Nie udało się załadować szczegółów wyzwania'),
+        child: Text('Failed to load challenge details'),
       );
     }
-    String title = _challengeData?['title'] ?? 'Brak tytułu';
-    String description = _challengeData?['description'] ?? 'Brak opisu';
-    String data = _challengeData?['submissionDeadline'] ?? 'Brak danych';
-    String isActive = _challengeData?['isActive'] == true ? 'Aktywne' : 'Nieaktywne';
+    String title = _challengeData?['title'] ?? 'No title';
+    String description = _challengeData?['description'] ?? 'No description';
+    String data = _challengeData?['submissionDeadline'] ?? 'No data';
+    String isActive = _challengeData?['isActive'] == true ? 'Active' : 'Inactive';
     List<dynamic> allowedFileTypes = _challengeData?['allowedFileTypes'] ?? ['Dwolne'];
     return Center(
       child: SingleChildScrollView(
@@ -143,7 +139,6 @@ class _ChallengeUserPageState extends State<ChallengeUserPage> {
               ),
               const SizedBox(height: 32),
 
-              // Przycisk pobierania datasetu
               SizedBox(
                 width: 300,
                 child: ElevatedButton.icon(
@@ -157,7 +152,7 @@ class _ChallengeUserPageState extends State<ChallengeUserPage> {
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('Brak autoryzacji'),
+                            content: Text('No authorization'),
                             backgroundColor: Colors.red,
                           ),
                         );
@@ -175,7 +170,6 @@ class _ChallengeUserPageState extends State<ChallengeUserPage> {
                       );
 
                       if (response.statusCode == 200) {
-                        // Sukces - pobierz plik
                         final blob = html.Blob([response.bodyBytes]);
                         final blobUrl = html.Url.createObjectUrlFromBlob(blob);
                         html.AnchorElement(href: blobUrl)
@@ -186,15 +180,14 @@ class _ChallengeUserPageState extends State<ChallengeUserPage> {
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('Plik pobrany pomyślnie!'),
+                              content: Text('File downloaded successfully!'),
                               backgroundColor: Colors.green,
                               duration: Duration(seconds: 1),
                             ),
                           );
                         }
                       } else {
-                        // Błąd - wyciągnij error z JSON
-                        String errorMessage = 'Błąd pobierania: ${response.statusCode}';
+                        String errorMessage = 'Download error: ${response.statusCode}';
                         if (response.body.isNotEmpty) {
                           try {
                             final data = json.decode(response.body);
@@ -224,7 +217,7 @@ class _ChallengeUserPageState extends State<ChallengeUserPage> {
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('Błąd sieci: $e'),
+                            content: Text('Network error: $e'),
                             backgroundColor: Colors.red,
                             duration: const Duration(seconds: 3),
                           ),
@@ -234,7 +227,7 @@ class _ChallengeUserPageState extends State<ChallengeUserPage> {
                   },
                   icon: const Icon(Icons.download, color: Colors.white),
                   label: const Text(
-                    'Pobierz Przykładowe Dane',
+                    'Download Sample Data',
                     style: TextStyle(color: Colors.white, fontSize: 16),
                   ),
                 ),
@@ -249,11 +242,10 @@ class _ChallengeUserPageState extends State<ChallengeUserPage> {
                     backgroundColor: AppColors.primary,
                   ),
                   onPressed: () async {
-                    // Jeśli plik już wybrany - prześlij go
                     if (_selectedFile != null) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text('Przesyłanie pliku...'),
+                          content: Text('Uploading file...'),
                           duration: Duration(seconds: 1),
                         ),
                       );
@@ -265,10 +257,9 @@ class _ChallengeUserPageState extends State<ChallengeUserPage> {
                       
                       if (context.mounted) {
                         if (error == null) {
-                          // Sukces
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('Plik przesłany pomyślnie!'),
+                              content: Text('File uploaded successfully!'),
                               backgroundColor: Colors.green,
                             ),
                           );
@@ -277,7 +268,6 @@ class _ChallengeUserPageState extends State<ChallengeUserPage> {
                             _selectedFileName = null;
                           });
                         } else {
-                          // Błąd - pokaż komunikat i zresetuj wybór
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(error),
@@ -294,7 +284,6 @@ class _ChallengeUserPageState extends State<ChallengeUserPage> {
                       return;
                     }
                     
-                    // Jeśli brak pliku - otwórz dialog wyboru
                     final html.FileUploadInputElement uploadInput = html.FileUploadInputElement();
                     uploadInput.click();
                     
@@ -307,11 +296,11 @@ class _ChallengeUserPageState extends State<ChallengeUserPage> {
                           _selectedFileName = file.name;
                         });
                         
-                        print('Wybrano plik: ${file.name}');
+                        print('File selected: ${file.name}');
                         
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('Wybrano plik: ${file.name}'),
+                            content: Text('File selected: ${file.name}'),
                             backgroundColor: Colors.green,
                           ),
                         );
@@ -323,7 +312,7 @@ class _ChallengeUserPageState extends State<ChallengeUserPage> {
                     color: AppColors.background,
                   ),
                   label: Text(
-                    _selectedFile != null ? _selectedFileName! : 'Wybierz plik',
+                    _selectedFile != null ? _selectedFileName! : 'Select file',
                     style: const TextStyle(
                       fontSize: 16,
                       color: AppColors.background,
@@ -333,7 +322,7 @@ class _ChallengeUserPageState extends State<ChallengeUserPage> {
               ),
               const SizedBox(height: 16),
               Text(
-                'Dozwolone typy plików: ${allowedFileTypes.toString()}',
+                'Allowed file types: ${allowedFileTypes.toString()}',
                 style: Theme.of(context).textTheme.labelMedium,
                 textAlign: TextAlign.center,
               ),
@@ -355,7 +344,6 @@ class _ChallengeUserPageState extends State<ChallengeUserPage> {
   }
 
   Widget _buildLeaderboard() {
-    // Sprawdź, czy dane leaderboardu są dostępne
     if (_leaderboardData == null || _leaderboardData!.isEmpty) {
       return Card(
         elevation: 4,
@@ -366,7 +354,7 @@ class _ChallengeUserPageState extends State<ChallengeUserPage> {
           padding: const EdgeInsets.all(16.0),
           child: Center(
             child: Text(
-              'Brak danych w leaderboardzie',
+              'No leaderboard data',
               style: TextStyle(color: Colors.grey),
             ),
           ),
@@ -385,7 +373,6 @@ class _ChallengeUserPageState extends State<ChallengeUserPage> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            // Header
             Container(
               padding: const EdgeInsets.symmetric(vertical: 12),
               decoration: BoxDecoration(
@@ -405,14 +392,14 @@ class _ChallengeUserPageState extends State<ChallengeUserPage> {
                   Expanded(
                     flex: 3,
                     child: Text(
-                      'Uczestnik',
+                      'Participant',
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ),
                   Expanded(
                     flex: 2,
                     child: Text(
-                      'Punkty',
+                      'Points',
                       style: const TextStyle(fontWeight: FontWeight.bold),
                       textAlign: TextAlign.center,
                     ),
@@ -421,12 +408,11 @@ class _ChallengeUserPageState extends State<ChallengeUserPage> {
               ),
             ),
             const SizedBox(height: 8),
-            // Entries
             ...leaderboardData.map((entry) {
               final int rank = entry['rank'] ?? 0;
-              final String displayName = entry['username'] ?? 'Nieznany';
+              final String displayName = entry['username'] ?? 'Unknown';
               final dynamic bestScore = entry['bestScore'];
-              final String scoreDisplay = bestScore == null ? 'Brak' : bestScore.toString();
+              final String scoreDisplay = bestScore == null ? 'None' : bestScore.toString();
               
               final isTop3 = rank <= 3;
               Color? medalColor;

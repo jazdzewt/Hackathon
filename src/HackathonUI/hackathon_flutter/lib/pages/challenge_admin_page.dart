@@ -177,7 +177,7 @@ class _ChallengeAdminPageState extends State<ChallengeAdminPage> {
     final token = await _getToken();
     if (token == null) {
       setState(() {
-        _apiError = 'Brak autoryzacji';
+        _apiError = 'No authorization';
         _isLoading = false;
       });
       return;
@@ -202,10 +202,10 @@ class _ChallengeAdminPageState extends State<ChallengeAdminPage> {
         _selectedDeadline = _challenge!.submissionDeadline;
       } else {
         _apiError =
-            'Błąd pobierania danych: ${response.statusCode} - ${response.body}';
+            'Data fetch error: ${response.statusCode} - ${response.body}';
       }
     } catch (e) {
-      _apiError = 'Błąd sieci: $e';
+      _apiError = 'Network error: $e';
     }
     setState(() => _isLoading = false);
   }
@@ -242,11 +242,11 @@ class _ChallengeAdminPageState extends State<ChallengeAdminPage> {
           _refreshCounter++; // Wymuszaj rebuild
         });
       } else {
-        _showError('Błąd pobierania zgłoszeń: ${response.statusCode}');
+        _showError('Submissions fetch error: ${response.statusCode}');
       }
     } catch (e) {
-      _showError('Błąd sieci (zgłoszenia): $e');
-      print('Błąd sieci (zgłoszenia): $e');
+      _showError('Network error (submissions): $e');
+      print('Network error (submissions): $e');
     }
     setState(() => _isLoadingSubmissions = false);
   }
@@ -275,9 +275,9 @@ class _ChallengeAdminPageState extends State<ChallengeAdminPage> {
 
     "shortDescription": _descriptionController.text.length > 100
         ? _descriptionController.text.substring(0, 100)
-        : _descriptionController.text, // Tymczasowe obejście
-    "rules": "TODO: Dodaj pole 'rules' do formularza", // Tymczasowe
-    "startDate": DateTime.now().toIso8601String() // Tymczasowe
+        : _descriptionController.text, // Temporary workaround
+    "rules": "TODO: Add 'rules' field to form", // Temporary
+    "startDate": DateTime.now().toIso8601String() // Temporary
   };
 
   try {
@@ -299,12 +299,12 @@ class _ChallengeAdminPageState extends State<ChallengeAdminPage> {
       }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text('Zapisano pomyślnie!'),
+            content: Text('Saved successfully!'),
             backgroundColor: Colors.green),
       );
     } else {
-      // Błąd 400 (Bad Request) lub inny
-      _showError('Błąd zapisu: ${response.statusCode} - ${response.body}');
+      // 400 (Bad Request) or other error
+      _showError('Save error: ${response.statusCode} - ${response.body}');
     }
   } catch (e) {
     _showError('Błąd sieci: $e');
@@ -320,8 +320,8 @@ class _ChallengeAdminPageState extends State<ChallengeAdminPage> {
   );
 
   if (result == null || result.files.first.bytes == null) {
-    // Użytkownik anulował wybieranie lub plik jest pusty
-    _showError('Nie wybrano pliku lub plik jest pusty.');
+    // User cancelled or file is empty
+    _showError('No file selected or file is empty.');
     return;
   }
 
@@ -331,7 +331,7 @@ class _ChallengeAdminPageState extends State<ChallengeAdminPage> {
   
   final token = await _getToken();
   if (token == null) {
-    _showError('Brak autoryzacji');
+    _showError('No authorization');
     return;
   }
 
@@ -359,20 +359,20 @@ class _ChallengeAdminPageState extends State<ChallengeAdminPage> {
     final response = await http.Response.fromStream(streamedResponse);
 
     if (response.statusCode == 200 || response.statusCode == 204) {
-      // Pokaż sukces
+      // Show success
       if (context.mounted) {
          ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Klucz odpowiedzi został pomyślnie przesłany!'),
+              content: Text('Answer key uploaded successfully!'),
               backgroundColor: Colors.green,
             ),
          );
       }
     } else {
-      _showError('Błąd przesyłania klucza: ${response.statusCode} - ${response.body}');
+      _showError('Key upload error: ${response.statusCode} - ${response.body}');
     }
   } catch (e) {
-    _showError('Błąd sieci (przesyłanie klucza): $e');
+    _showError('Network error (key upload): $e');
   }
 
   setState(() => _isSaving = false); // Odblokuj UI
@@ -386,7 +386,7 @@ Future<void> _uploadDataset() async {
   );
 
   if (result == null || result.files.isEmpty) {
-    _showError('Nie wybrano pliku');
+    _showError('No file selected');
     return;
   }
 
@@ -394,7 +394,7 @@ Future<void> _uploadDataset() async {
   final fileName = result.files.first.name;
 
   if (fileBytes == null) {
-    _showError('Błąd odczytu pliku');
+    _showError('File read error');
     return;
   }
 
@@ -403,7 +403,7 @@ Future<void> _uploadDataset() async {
   // 2. Pobierz token
   final token = await _getToken();
   if (token == null) {
-    _showError('Brak tokenu autoryzacji');
+    _showError('No authorization token');
     setState(() => _isSaving = false);
     return;
   }
@@ -430,22 +430,22 @@ Future<void> _uploadDataset() async {
     final response = await http.Response.fromStream(streamedResponse);
 
     if (response.statusCode == 200 || response.statusCode == 204) {
-      // Pokaż sukces
+      // Show success
       if (context.mounted) {
          ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Dataset został pomyślnie przesłany!'),
+              content: Text('Dataset uploaded successfully!'),
               backgroundColor: Colors.green,
             ),
          );
       }
-      // Odśwież dane wyzwania
+      // Refresh challenge data
       await _fetchChallengeDetails();
     } else {
-      _showError('Błąd przesyłania datasetu: ${response.statusCode} - ${response.body}');
+      _showError('Dataset upload error: ${response.statusCode} - ${response.body}');
     }
   } catch (e) {
-    _showError('Błąd sieci (przesyłanie datasetu): $e');
+    _showError('Network error (dataset upload): $e');
   }
 
   setState(() => _isSaving = false);
@@ -456,17 +456,17 @@ Future<void> _uploadDataset() async {
     final bool? confirmed = await showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Potwierdź usunięcie'),
+        title: const Text('Confirm deletion'),
         content: Text(
-            'Czy na pewno chcesz trwale usunąć wyzwanie "${_challenge?.title}"?'),
+            'Are you sure you want to permanently delete challenge "${_challenge?.title}"?'),
         actions: [
           TextButton(
               onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('Anuluj')),
+              child: const Text('Cancel')),
           TextButton(
               onPressed: () => Navigator.of(ctx).pop(true),
               child:
-                  const Text('Usuń', style: TextStyle(color: Colors.red))),
+                  const Text('Delete', style: TextStyle(color: Colors.red))),
         ],
       ),
     );
@@ -488,13 +488,13 @@ Future<void> _uploadDataset() async {
           context.go('/dashboard');
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-                content: Text('Wyzwanie usunięte.'),
+                content: Text('Challenge deleted.'),
                 backgroundColor: Colors.green),
           );
         }
       } else {
-        _showError('Błąd usuwania: ${response.statusCode} - ${response.body}');
-        print('Blad usuwania:  ${response.statusCode} - ${response.body} ');
+        _showError('Deletion error: ${response.statusCode} - ${response.body}');
+        print('Deletion error:  ${response.statusCode} - ${response.body} ');
       }
     } catch (e) {
       _showError('Błąd sieci: $e');
@@ -513,7 +513,7 @@ Future<void> _uploadDataset() async {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Uruchamianie ewaluacji...'),
+            content: Text('Starting evaluation...'),
             duration: Duration(milliseconds: 500),
           ),
         );
@@ -535,14 +535,14 @@ Future<void> _uploadDataset() async {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Ewaluacja uruchomiona pomyślnie'),
+              content: Text('Evaluation started successfully'),
               backgroundColor: Colors.green,
               duration: Duration(seconds: 1),
             ),
           );
         }
       } else {
-        String errorMessage = 'Błąd ${response.statusCode}';
+        String errorMessage = 'Error ${response.statusCode}';
         if (response.body.isNotEmpty) {
           try {
             final data = json.decode(response.body);
@@ -591,14 +591,14 @@ Future<void> _uploadDataset() async {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Plik pobrano pomyślnie'),
+              content: Text('File downloaded successfully'),
               backgroundColor: Colors.green,
               duration: Duration(seconds: 1),
             ),
           );
         }
       } else {
-        _showError('Błąd pobierania pliku: ${response.statusCode}');
+        _showError('File download error: ${response.statusCode}');
       }
     } catch (e) {
       _showError('Błąd sieci: $e');
@@ -613,7 +613,7 @@ Future<void> _uploadDataset() async {
 
     final double? scoreValue = double.tryParse(score);
     if (scoreValue == null) {
-      _showError('Ocena musi być liczbą');
+      _showError('Grade must be a number');
       return;
     }
 
@@ -631,9 +631,9 @@ Future<void> _uploadDataset() async {
       );
 
       if (response.statusCode == 200) {
-        _fetchSubmissions(page: 1); // Odśwież listę, aby pokazać nową ocenę
+        _fetchSubmissions(page: 1); // Refresh list to show new grade
       } else {
-        _showError('Błąd zapisu oceny: ${response.statusCode} - ${response.body}');
+        _showError('Grade save error: ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
       _showError('Błąd sieci: $e');
@@ -653,7 +653,7 @@ Future<void> _uploadDataset() async {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Panel Admina: Wyzwanie #${widget.challengeId}'),
+        title: Text('Admin Panel: Challenge #${widget.challengeId}'),
         centerTitle: true,
         actions: [
           Padding(
@@ -667,7 +667,7 @@ Future<void> _uploadDataset() async {
               },
               icon: const Icon(Icons.logout, color: Colors.white),
               label: const Text(
-                'Wyloguj się',
+                'Log out',
                 style: TextStyle(color: Colors.white),
               ),
             ),
@@ -690,7 +690,7 @@ Future<void> _uploadDataset() async {
           child: Text(_apiError!, style: const TextStyle(color: Colors.red)));
     }
     if (_challenge == null) {
-      return const Center(child: Text('Nie udało się wczytać wyzwania.'));
+      return const Center(child: Text('Failed to load challenge.'));
     }
 
     return AbsorbPointer(
@@ -700,12 +700,12 @@ Future<void> _uploadDataset() async {
         children: [
           _buildHeaderButtons(),
           const Divider(height: 24, thickness: 1),
-          Text('Edycja Wyzwania',
+          Text('Challenge Edit',
               style: Theme.of(context).textTheme.headlineMedium),
           const SizedBox(height: 16),
           _buildChallengeForm(),
           const Divider(height: 24, thickness: 1),
-          Text('Zgłoszenia Użytkowników',
+          Text('User Submissions',
               style: Theme.of(context).textTheme.headlineMedium),
           const SizedBox(height: 16),
           _buildSubmissionsTable(),
@@ -731,7 +731,7 @@ Future<void> _uploadDataset() async {
           // Przycisk EDYTUJ / ANULUJ
           ElevatedButton.icon(
             icon: Icon(_isEditing ? Icons.cancel : Icons.edit),
-            label: Text(_isEditing ? 'Anuluj' : 'Edytuj'),
+            label: Text(_isEditing ? 'Cancel' : 'Edit'),
             style: ElevatedButton.styleFrom(
                 backgroundColor: _isEditing
                     ? Colors.grey
@@ -741,7 +741,7 @@ Future<void> _uploadDataset() async {
           ),
           ElevatedButton.icon(
             icon: const Icon(Icons.save_as),
-            label: const Text('Zapisz i Wyjdź'),
+            label: const Text('Save and Exit'),
             style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.primary,
                 foregroundColor: Colors.white),
@@ -750,7 +750,7 @@ Future<void> _uploadDataset() async {
           // Przycisk ZAPISZ I WYJDŹ
           ElevatedButton.icon(
             icon: const Icon(Icons.arrow_back),
-            label: const Text('Wróć'),
+            label: const Text('Back'),
             style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.primary,
                 foregroundColor: Colors.white),
@@ -761,7 +761,7 @@ Future<void> _uploadDataset() async {
           // Przycisk USUŃ
           ElevatedButton.icon(
             icon: const Icon(Icons.delete_forever),
-            label: const Text('Usuń Wyzwanie'),
+            label: const Text('Delete Challenge'),
             style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red, foregroundColor: Colors.white),
             onPressed: _deleteChallenge,
@@ -769,15 +769,15 @@ Future<void> _uploadDataset() async {
           // Przycisk dodaj dataset
           ElevatedButton.icon(
             icon: const Icon(Icons.upload_file),
-            label: const Text('Dodaj Dataset'),
+            label: const Text('Add Dataset'),
             style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.blue, foregroundColor: Colors.white),
             onPressed: _uploadDataset,
           ),
-          // Przycisk dodaj klucz do sprawdzenia
+          // Button to add answer key
           ElevatedButton.icon(
             icon: const Icon(Icons.key),
-            label: const Text('Dodaj Klucz Sprawdzenia'),
+            label: const Text('Add Answer Key'),
             style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.orange, foregroundColor: Colors.white),
             onPressed: _uploadKey,
@@ -798,16 +798,16 @@ Future<void> _uploadDataset() async {
             controller: _titleController,
             readOnly: !_isEditing,
             decoration: const InputDecoration(
-                labelText: 'Tytuł Wyzwania', border: OutlineInputBorder()),
+                labelText: 'Challenge Title', border: OutlineInputBorder()),
             validator: (value) =>
-                (value == null || value.isEmpty) ? 'Tytuł jest wymagany' : null,
+                (value == null || value.isEmpty) ? 'Title is required' : null,
           ),
           const SizedBox(height: 16),
           TextFormField(
             controller: _descriptionController,
             readOnly: !_isEditing,
             decoration: const InputDecoration(
-                labelText: 'Opis', border: OutlineInputBorder()),
+                labelText: 'Description', border: OutlineInputBorder()),
             maxLines: 5,
           ),
           const SizedBox(height: 16),
@@ -822,7 +822,7 @@ Future<void> _uploadDataset() async {
                   controller: _metricController,
                   readOnly: !_isEditing,
                   decoration: const InputDecoration(
-                      labelText: 'Metryka Oceny (np. accuracy)',
+                      labelText: 'Evaluation Metric (e.g. accuracy)',
                       border: OutlineInputBorder()),
                 ),
               ),
@@ -891,7 +891,7 @@ Future<void> _uploadDataset() async {
       return const Center(
           child: Padding(
               padding: EdgeInsets.all(16.0),
-              child: Text('Brak zgłoszeń do wyświetlenia.')));
+              child: Text('No submissions to display.')));
     }
 
     return Column(
@@ -914,12 +914,12 @@ Future<void> _uploadDataset() async {
       children: [
         DataTable(
           columns: const [
-            DataColumn(label: Text('Plik')), // Zamiast Info
-            DataColumn(label: Text('Data')),
+            DataColumn(label: Text('File')), // Instead of Info
+            DataColumn(label: Text('Date')),
             DataColumn(label: Text('Status')),
-            DataColumn(label: Text('Ocena')),
-            DataColumn(label: Text('Ewaluacja')),
-            DataColumn(label: Text('Akcje')),
+            DataColumn(label: Text('Grade')),
+            DataColumn(label: Text('Evaluation')),
+            DataColumn(label: Text('Actions')),
           ],
           rows: _submissions.map((sub) {
             return DataRow(
@@ -930,8 +930,8 @@ Future<void> _uploadDataset() async {
               DataCell(Text(DateFormat('MM-dd HH:mm').format(sub.submittedAt))),
               DataCell(
                 Tooltip(
-                  // API nie zwraca 'errorMessage', więc pokazuj status
-                  message: sub.status ?? 'Brak statusu',
+                  // API doesn't return 'errorMessage', so show status
+                  message: sub.status ?? 'No status',
                   child: Text(sub.status ?? '',
                       style: TextStyle(
                           color: sub.status == 'Error'
@@ -945,7 +945,7 @@ Future<void> _uploadDataset() async {
                   child: TextFormField(
                     key: ValueKey('score_${sub.id}_$_refreshCounter'),
                     initialValue: sub.score?.toString() ?? '',
-                    decoration: const InputDecoration(labelText: 'Ocena'),
+                    decoration: const InputDecoration(labelText: 'Grade'),
                     keyboardType: TextInputType.number,
                     onFieldSubmitted: (value) =>
                         _gradeSubmission(sub.id, value),
@@ -955,14 +955,14 @@ Future<void> _uploadDataset() async {
               DataCell(
                 IconButton(
                   icon: const Icon(Icons.refresh),
-                  tooltip: 'Uruchom ewaluację',
+                  tooltip: 'Run evaluation',
                   onPressed: () => _rejudgeSubmission(sub.id),
                 ),
               ),
               DataCell(
                 IconButton(
                   icon: const Icon(Icons.download),
-                  tooltip: 'Pobierz plik',
+                  tooltip: 'Download file',
                   onPressed: () => _downloadSubmission(sub.id, sub.fileName),
                 ),
               ),
@@ -975,7 +975,7 @@ Future<void> _uploadDataset() async {
                   padding: EdgeInsets.all(16), child: CircularProgressIndicator())
               : TextButton(
                   onPressed: () => _fetchSubmissions(page: _submissionsPage + 1),
-                  child: const Text('Wczytaj więcej...'),
+                  child: const Text('Load more...'),
                 )
       ],
     );
@@ -998,7 +998,7 @@ Future<void> _uploadDataset() async {
                 : const Center(
                     child: Padding(
                         padding: EdgeInsets.all(8.0),
-                        child: Text('Koniec listy')));
+                        child: Text('End of list')));
           }
 
           final submission = _submissions[index];
@@ -1010,11 +1010,11 @@ Future<void> _uploadDataset() async {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // --- ZMIANA: Pokaż fileName ---
-                  Text('Plik: ${submission.fileName ?? 'ID: ${submission.id}'}',
+                  // --- CHANGE: Show fileName ---
+                  Text('File: ${submission.fileName ?? 'ID: ${submission.id}'}',
                       style: const TextStyle(fontWeight: FontWeight.bold)),
-                  Text('Zgłoszono: ${DateFormat('yyyy-MM-dd HH:mm').format(submission.submittedAt)}'),
-                  Text('Status: ${submission.status ?? 'Brak'}'),
+                  Text('Submitted: ${DateFormat('yyyy-MM-dd HH:mm').format(submission.submittedAt)}'),
+                  Text('Status: ${submission.status ?? 'None'}'),
                   const SizedBox(height: 8),
                   Row(
                     children: [
@@ -1023,7 +1023,7 @@ Future<void> _uploadDataset() async {
                           key: ValueKey('score_${submission.id}_$_refreshCounter'),
                           initialValue: submission.score?.toString() ?? '',
                           decoration: const InputDecoration(
-                              labelText: 'Ocena', border: OutlineInputBorder()),
+                              labelText: 'Grade', border: OutlineInputBorder()),
                           keyboardType: TextInputType.number,
                           onFieldSubmitted: (value) =>
                               _gradeSubmission(submission.id, value),
@@ -1031,12 +1031,12 @@ Future<void> _uploadDataset() async {
                       ),
                       IconButton(
                         icon: const Icon(Icons.refresh),
-                        tooltip: 'Uruchom ewaluację',
+                        tooltip: 'Run evaluation',
                         onPressed: () => _rejudgeSubmission(submission.id),
                       ),
                       IconButton(
                         icon: const Icon(Icons.download),
-                        tooltip: 'Pobierz plik',
+                        tooltip: 'Download file',
                         onPressed: () => _downloadSubmission(submission.id, submission.fileName),
                       ),
                     ],

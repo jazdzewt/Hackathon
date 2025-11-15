@@ -67,39 +67,34 @@ class _RegisterScreenState extends State<RegisterScreen> {
           .timeout(const Duration(seconds: 12));
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
-        // Sukces 1234567
         final data = jsonDecode(response.body);
         debugPrint('Response data: $data');
         
-        // Zapisz token
         if (data is Map<String, dynamic> && data.containsKey('accessToken')) {
           await TokenStorage.saveToken(data['accessToken']);
-          debugPrint('Token zapisany: ${data['accessToken']}');
+          debugPrint('Token saved: ${data['accessToken']}');
           
           if (data.containsKey('refreshToken')) {
             await TokenStorage.saveRefreshToken(data['refreshToken']);
           }
           
-          // Weryfikacja
           final savedToken = await TokenStorage.getToken();
-          debugPrint('Token odczytany: $savedToken');
+          debugPrint('Token read: $savedToken');
         }
         
         if (!mounted) return false;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Rejestracja powiodła się!'),
+            content: Text('Registration successful!'),
             backgroundColor: Colors.green,
           ),
         );
         return true;
       }
-      // Parsujemy błąd z JSON
       final data = jsonDecode(response.body);
-      String errorMessage = 'Nie udało się zarejestrować';
+      String errorMessage = 'Registration failed';
       if (data is Map<String, dynamic>) {
         if (data.containsKey('error')) {
-          // Przygotowujemy komunikat
           errorMessage = extractMsg(data['error'].toString());
         } else if (data.containsKey('message')) {
           errorMessage = data['message'];
@@ -114,7 +109,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     } catch (e) {
       if (!mounted) return false;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Wyjątek podczas rejestracji: $e'), backgroundColor: Colors.red),
+        SnackBar(content: Text('Registration exception: $e'), backgroundColor: Colors.red),
       );
       return false;
     } finally {
@@ -142,16 +137,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
           Expanded(
             flex: 1,
             child: Container(
-              height: double.infinity, // pełna wysokość ekranu
+              height: double.infinity,
               child: Image.asset(
                 'assets/images/hackaton2.jpg',
-                fit: BoxFit
-                    .cover, // zachowuje proporcje, przycina poziomo lub pionowo
+                fit: BoxFit.cover,
               ),
             ),
           ),
           Expanded(
-            flex: 1, // dokładnie 50%
+            flex: 1,
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final bodyHeight = constraints.maxHeight;
@@ -169,7 +163,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             child: Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 16),
                               child: Text(
-                                'Witaj w hackathonach Goldman Sachs!',
+                                'Welcome to Goldman Sachs Hackathons!',
                                 style: Theme.of(context).textTheme.headlineLarge,
                                 textAlign: TextAlign.center,
                               ),
@@ -203,20 +197,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     const Text(
-                                      'Rejestracja',
+                                      'Registration',
                                       style: LoginTextStyle.header,
                                     ),
                                     const SizedBox(height: 24),
                                     TextFormField(
                                       controller: usernameController,
                                       decoration: const InputDecoration(
-                                        labelText: 'Nazwa użytkownika',
+                                        labelText: 'Username',
                                         border: OutlineInputBorder(),
                                       ),
                                       validator: (value) {
                                         if (value == null ||
                                             value.trim().isEmpty) {
-                                          return 'Nazwa użytkownika jest wymagana';
+                                          return 'Username is required';
                                         }
                                         return null;
                                       },
@@ -231,7 +225,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                       validator: (value) {
                                         if (value == null ||
                                             value.trim().isEmpty) {
-                                          return 'Adres email jest wymagany';
+                                          return 'Email address is required';
                                         }
                                         return null;
                                       },
@@ -241,13 +235,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                       controller: passwordController,
                                       obscureText: true,
                                       decoration: const InputDecoration(
-                                        labelText: 'Hasło',
+                                        labelText: 'Password',
                                         border: OutlineInputBorder(),
                                       ),
                                       validator: (value) {
                                         if (value == null ||
                                             value.trim().isEmpty) {
-                                          return 'Hasło jest wymagane';
+                                          return 'Password is required';
                                         }
                                         return null;
                                       },
@@ -258,16 +252,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                           passwordConfirmationController,
                                       obscureText: true,
                                       decoration: const InputDecoration(
-                                        labelText: 'Powtórz hasło',
+                                        labelText: 'Confirm password',
                                         border: OutlineInputBorder(),
                                       ),
                                       validator: (value) {
                                         if (value == null ||
                                             value.trim().isEmpty) {
-                                          return 'Hasło jest wymagane';
+                                          return 'Password is required';
                                         }
                                         if (value != passwordController.text) {
-                                          return 'Hasła nie są takie same';
+                                          return 'Passwords do not match';
                                         }
                                         return null;
                                       },
@@ -326,7 +320,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                                 ),
                                               )
                                             : const Text(
-                                                'Rejestruj',
+                                                'Register',
                                                 style: TextStyle(
                                                   color: AppColors.background,
                                                 ),
@@ -353,7 +347,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                         GoRouter.of(context).go('/');
                                       },
                                       child: const Text(
-                                        'Mam już konto',
+                                        'Already have an account',
                                         style: TextStyle(
                                           decoration: TextDecoration.underline,
                                           fontSize: 14,

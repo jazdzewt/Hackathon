@@ -48,18 +48,18 @@ class _HomeScreenState extends State<HomeScreen> {
         
         if (data is Map<String, dynamic> && data.containsKey('accessToken')) {
           await TokenStorage.saveToken(data['accessToken']);
-          debugPrint('Token zapisany: ${data['accessToken']}');
+          debugPrint('Token saved: ${data['accessToken']}');
           
           if (data.containsKey('refreshToken')) {
             await TokenStorage.saveRefreshToken(data['refreshToken']);
           }
           
           final savedToken = await TokenStorage.getToken();
-          debugPrint('Token odczytany: $savedToken');
+          debugPrint('Token read: $savedToken');
           if (!mounted) return false;
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Logowanie powiodło się!'),
+              content: Text('Log in successful!'),
               backgroundColor: Colors.green,
             ),
           );
@@ -83,7 +83,7 @@ class _HomeScreenState extends State<HomeScreen> {
       }
 
       final data = jsonDecode(response.body);
-      String errorMessage = 'Nie udało się zalogować';
+      String errorMessage = 'Login failed';
       if (data is Map<String, dynamic>) {
         if (data.containsKey('message')) {
           errorMessage = extractMsg(data['message'].toString());
@@ -99,7 +99,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!mounted) return false;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Wyjątek podczas logowania: $e'),
+          content: Text('Login exception: $e'),
           backgroundColor: Colors.red,
         ),
       );
@@ -126,16 +126,15 @@ class _HomeScreenState extends State<HomeScreen> {
           Expanded(
             flex: 1,
             child: Container(
-              height: double.infinity, // pełna wysokość ekranu
+              height: double.infinity,
               child: Image.asset(
                 'assets/images/hackaton1.jpg',
-                fit: BoxFit
-                    .cover, // zachowuje proporcje, przycina poziomo lub pionowo
+                fit: BoxFit.cover,
               ),
             ),
           ),
           Expanded(
-            flex: 1, // dokładnie 50%
+            flex: 1,
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final bodyHeight = constraints.maxHeight;
@@ -153,7 +152,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             child: Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 16),
                               child: Text(
-                                'Witaj w hackathonach Goldman Sachs!',
+                                'Welcome to Goldman Sachs Hackathons!',
                                 style: Theme.of(context).textTheme.headlineLarge,
                                 textAlign: TextAlign.center,
                               ),
@@ -187,7 +186,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     const Text(
-                                      'Logowanie',
+                                      'Login',
                                       style: LoginTextStyle.header,
                                     ),
                                     const SizedBox(height: 24),
@@ -200,7 +199,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       validator: (value) {
                                         if (value == null ||
                                             value.trim().isEmpty) {
-                                          return 'Adres email jest wymagany';
+                                          return 'Email address is required';
                                         }
                                         return null;
                                       },
@@ -210,13 +209,13 @@ class _HomeScreenState extends State<HomeScreen> {
                                       controller: passwordController,
                                       obscureText: true,
                                       decoration: const InputDecoration(
-                                        labelText: 'Hasło',
+                                        labelText: 'Password',
                                         border: OutlineInputBorder(),
                                       ),
                                       validator: (value) {
                                         if (value == null ||
                                             value.trim().isEmpty) {
-                                          return 'Hasło jest wymagane';
+                                          return 'Password is required';
                                         }
                                         return null;
                                       },
@@ -271,7 +270,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                 ),
                                               )
                                             : const Text(
-                                                'Zaloguj',
+                                                'Log in',
                                                 style: TextStyle(
                                                   color: AppColors.background,
                                                 ),
@@ -299,7 +298,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                         GoRouter.of(context).go('/register');
                                       },
                                       child: const Text(
-                                        'Zarejestruj się',
+                                        'Sign up',
                                         style: TextStyle(
                                           decoration: TextDecoration.underline,
                                           fontSize: 14,
