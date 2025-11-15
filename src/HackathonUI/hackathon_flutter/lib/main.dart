@@ -62,13 +62,23 @@ class MyApp extends StatelessWidget {
         final String location = state.matchedLocation;
         final bool loggedIn = await TokenStorage.isLoggedIn();
 
+        // Public routes - dostępne bez logowania
         final bool goingToAuthFree =
             location == '/' || location == '/register';
 
-        if (!loggedIn && location.startsWith('/dashboard')) {
+        // Protected routes - wymagają logowania
+        final bool goingToProtected = 
+            location.startsWith('/dashboard') || 
+            location.startsWith('/challenge') ||
+            location.startsWith('/challengeAdmin') ||
+            location.startsWith('/challengeCreate');
+
+        // Jeśli nie zalogowany i próbuje wejść na chronioną stronę -> redirect na landing
+        if (!loggedIn && goingToProtected) {
           return '/';
         }
 
+        // Jeśli zalogowany i próbuje wejść na landing/register -> redirect na dashboard
         if (loggedIn && goingToAuthFree) {
           return '/dashboard';
         }
