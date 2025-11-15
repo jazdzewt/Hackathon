@@ -315,9 +315,8 @@ class _ChallengeAdminPageState extends State<ChallengeAdminPage> {
     Future<void> _uploadKey() async {
   // 1. Wybierz plik
   FilePickerResult? result = await FilePicker.platform.pickFiles(
-    type: FileType.custom,
-    allowedExtensions: ['txt', 'csv'],
-    withData: true, // Kluczowe dla web, aby mieć file.bytes
+    type: FileType.any,
+    withData: true, 
   );
 
   if (result == null || result.files.first.bytes == null) {
@@ -383,8 +382,7 @@ class _ChallengeAdminPageState extends State<ChallengeAdminPage> {
 Future<void> _uploadDataset() async {
   // 1. Wybierz plik
   FilePickerResult? result = await FilePicker.platform.pickFiles(
-    type: FileType.custom,
-    allowedExtensions: ['csv', 'json', 'txt', 'zip', 'parquet'],
+    type: FileType.any,
   );
 
   if (result == null || result.files.isEmpty) {
