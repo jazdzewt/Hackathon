@@ -3,6 +3,12 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/main/VisualStudio.gitignore
 
+# Environment variables (SECURITY: Contains Supabase keys!)
+.env
+.env.local
+.env.production
+.env.*.local
+
 # User-specific files
 *.rsuser
 *.suo

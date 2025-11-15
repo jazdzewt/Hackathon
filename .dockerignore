@@ -1,0 +1,24 @@
+**/.dockerignore
+**/.git
+**/.gitignore
+**/.vs
+**/.vscode
+**/*.*proj.user
+**/bin
+**/obj
+**/logs
+**/node_modules
+**/npm-debug.log
+**/Dockerfile*
+**/docker-compose*
+**/.env
+**/.env.*
+**/README*.md
+
+# Flutter
+**/.dart_tool
+**/build
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/.packages
+**/pubspec.lock
