@@ -5,6 +5,7 @@ using Hackathon.Api.Models;
 using Hackathon.Api.DTOs;
 using Hackathon.Api.Services;
 using System.Security.Claims;
+using Supabase;
 
 namespace Hackathon.Api.Controllers;
 
@@ -14,11 +15,13 @@ public class SubmissionsController : ControllerBase
 {
     private readonly ISubmissionService _submissionService;
     private readonly ILogger<SubmissionsController> _logger;
+    private readonly Client _supabaseClient;
 
-    public SubmissionsController(ISubmissionService submissionService, ILogger<SubmissionsController> logger)
+    public SubmissionsController(ISubmissionService submissionService, ILogger<SubmissionsController> logger, Client supabaseClient)
     {
         _submissionService = submissionService;
         _logger = logger;
+        _supabaseClient = supabaseClient;
     }
 
     /// <summary>
@@ -114,5 +117,50 @@ public class SubmissionsController : ControllerBase
             _logger.LogError(ex, "Error fetching challenge submissions");
             return StatusCode(500, new { error = "Failed to fetch submissions", details = ex.Message });
         }
+    }
+
+    /// <summary>
+    /// Pobiera plik submission
+    /// </summary>
+    [HttpGet("{submissionId}/download")]
+    [Authorize]
+    public async Task<IActionResult> DownloadSubmission(string submissionId)
+    {
+        try
+        {
+            var submission = await _supabaseClient
+                .From<Submission>()
+                .Where(s => s.Id == submissionId)
+                .Single();
+
+            if (submission == null)
+            {
+                return NotFound(new { error = "Submission not found" });
+            }
+
+            // Pobierz plik z URL
+            using var httpClient = new HttpClient();
+            var fileBytes = await httpClient.GetByteArrayAsync(submission.FileUrl);
+
+            var contentType = GetContentType(Path.GetExtension(submission.FileName));
+            return File(fileBytes, contentType, submission.FileName);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Error downloading submission {submissionId}");
+            return StatusCode(500, new { error = "Error downloading submission", details = ex.Message });
+        }
+    }
+
+    private static string GetContentType(string fileExtension)
+    {
+        return fileExtension.ToLowerInvariant() switch
+        {
+            ".csv" => "text/csv",
+            ".json" => "application/json",
+            ".txt" => "text/plain",
+            ".zip" => "application/zip",
+            _ => "application/octet-stream"
+        };
     }
 }
