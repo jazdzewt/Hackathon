@@ -1,6 +1,29 @@
 @Hackathon.Api_HostAddress = http://localhost:5043
+@token = eyJhbGciOiJIUzI1NiIsImtpZCI6ImdYNU1RQ3hwVXJvbVBmT2wiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL3h6cWdoeGJxYnF6a3R5Z3ltcmV1LnN1cGFiYXNlLmNvL2F1dGgvdjEiLCJzdWIiOiI0ZDgxYmYyMS0zYzhlLTQ3NDQtYmRkMi0yZDBiZTUwNGEwOGUiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzYzMTY3MDcyLCJpYXQiOjE3NjMxNjM0NzIsImVtYWlsIjoiYWJjQGFiYzEyMzEyMy5jb20iLCJwaG9uZSI6IiIsImFwcF9tZXRhZGF0YSI6eyJwcm92aWRlciI6ImVtYWlsIiwicHJvdmlkZXJzIjpbImVtYWlsIl19LCJ1c2VyX21ldGFkYXRhIjp7ImRpc3BsYXlfbmFtZSI6Imphcm93aWxrdSIsImVtYWlsIjoiYWJjQGFiYzEyMzEyMy5jb20iLCJlbWFpbF92ZXJpZmllZCI6dHJ1ZSwicGhvbmVfdmVyaWZpZWQiOmZhbHNlLCJzdWIiOiI0ZDgxYmYyMS0zYzhlLTQ3NDQtYmRkMi0yZDBiZTUwNGEwOGUifSwicm9sZSI6ImF1dGhlbnRpY2F0ZWQiLCJhYWwiOiJhYWwxIiwiYW1yIjpbeyJtZXRob2QiOiJwYXNzd29yZCIsInRpbWVzdGFtcCI6MTc2MzE2MzQ3Mn1dLCJzZXNzaW9uX2lkIjoiZWM2ZjVmMzMtOGEzMy00ZjMxLWJkOGItNGQyYTQ1YTIzNTM5IiwiaXNfYW5vbnltb3VzIjpmYWxzZX0.uB7juZl0-9WlLhcfuMLkvkXP4PvfF8VVaf_dehNB88c
 
-GET {{Hackathon.Api_HostAddress}}/weatherforecast/
+### Get all challenges
+GET {{Hackathon.Api_HostAddress}}/api/challenges
 Accept: application/json
+
+###
+
+### Upload file submission
+# UWAGA: Przed wysłaniem:
+# 1. Zmień "test.txt" na ścieżkę do swojego pliku
+# 2. Pobierz challengeId z poprzedniego requesta (GET challenges)
+POST {{Hackathon.Api_HostAddress}}/api/submissions
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="file"; filename="test.txt"
+Content-Type: text/plain
+
+< C:\Users\konra\Desktop\test.txt
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="challengeId"
+
+WKLEJ_TUTAJ_CHALLENGE_ID
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
 
 ###

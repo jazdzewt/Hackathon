@@ -50,6 +50,10 @@ public class SupabaseAuthMiddleware
                     
                     Console.WriteLine($"[AUTH DEBUG] Role: {role}");
 
+                    // ⚡ DODAJ userId DO HttpContext.Items (zamiast Session)
+                    context.Items["UserId"] = userId;
+                    context.Items["UserEmail"] = email;
+
                     // Dodaj claims do kontekstu
                     var claims = new List<Claim>
                     {

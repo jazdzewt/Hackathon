@@ -33,13 +33,12 @@ public class SubmissionsController : ControllerBase
         try
         {
             // 1. SPRAWDŹ CZY UŻYTKOWNIK JEST ZALOGOWANY
-            var session = _supabase.Auth.CurrentSession;
-            if (session?.User == null)
+            var userId = HttpContext.Items["UserId"]?.ToString();
+            if (string.IsNullOrEmpty(userId))
             {
                 return Unauthorized(new { error = "Musisz być zalogowany" });
             }
 
-            var userId = session.User.Id;
             _logger.LogInformation($"Zgłoszenie od użytkownika {userId} dla wyzwania {challengeId}");
 
             // 2. SPRAWDŹ CZY PLIK ISTNIEJE
@@ -184,13 +183,11 @@ public class SubmissionsController : ControllerBase
     {
         try
         {
-            var session = _supabase.Auth.CurrentSession;
-            if (session?.User == null)
+            var userId = HttpContext.Items["UserId"]?.ToString();
+            if (string.IsNullOrEmpty(userId))
             {
                 return Unauthorized(new { error = "Musisz być zalogowany" });
             }
-
-            var userId = session.User.Id;
 
             var response = await _supabase
                 .From<Submission>()
