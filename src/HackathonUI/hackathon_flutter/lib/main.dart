@@ -6,7 +6,9 @@ import 'pages/landing.dart';
 import 'theme/colors.dart';
 import 'package:go_router/go_router.dart';
 import 'pages/register.dart';
-
+import 'services/token_storage.dart';
+import 'pages/challenge_user_page.dart';
+import 'pages/challenge_admin_page.dart';
 void main() {
   runApp(ChangeNotifierProvider(
       create: (context) => ChallengeProvider(),
@@ -35,7 +37,40 @@ class MyApp extends StatelessWidget {
           path: '/dashboard',
           builder: (context, state) => const DashboardPage(),
         ),
+        GoRoute(
+          path: '/challenge/:id', // id param
+          builder: (context, state) {
+            final challengeId = state.pathParameters['id']!;
+            return ChallengeUserPage(challengeId: challengeId);
+          },
+        ),
+        GoRoute(
+          path: '/challengeAdmin/:id', // id param
+          builder: (context, state) {
+            final challengeId = state.pathParameters['id']!;
+            return ChallengeAdminPage(challengeId: challengeId);
+          },
+        ),
       ],
+      redirect: (context, state) async {
+        final String location = state.matchedLocation;
+        final bool loggedIn = await TokenStorage.isLoggedIn();
+
+        final bool goingToAuthFree =
+            location == '/' || location == '/register';
+
+        // Not logged in and trying to access protected route → go to login
+        if (!loggedIn && location.startsWith('/dashboard')) {
+          return '/';
+        }
+
+        // Logged in and on auth pages → push to dashboard
+        if (loggedIn && goingToAuthFree) {
+          return '/dashboard';
+        }
+
+        return null; // no redirect
+      },
     );
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
