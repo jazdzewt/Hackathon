@@ -60,11 +60,31 @@ public class ScoringService : IScoringService
             // 6. Oblicz hash submission (dla deterministyczności)
             submission.FileHash = CalculateFileHash(submissionFile);
 
-            // 7. Oblicz score
+            // 6b. Anti-cheat: Validate row count
             var fileExtension = Path.GetExtension(submission.FileName);
+            var submissionRowCount = CountRows(submissionFile, fileExtension);
+            var groundTruthRowCount = CountRows(groundTruthFile, fileExtension);
+            
+            submission.RowCount = submissionRowCount;
+            
+            if (submissionRowCount != groundTruthRowCount)
+            {
+                throw new ArgumentException($"Row count mismatch: submission has {submissionRowCount} rows, expected {groundTruthRowCount}");
+            }
+
+            // 7. Oblicz score
             var score = await CalculateScoreAsync(submissionFile, groundTruthFile, challenge.EvaluationMetric, fileExtension);
 
-            // 8. Zapisz wynik
+            // 8. Anti-cheat: Flag suspicious perfect or near-perfect scores
+            bool isSuspicious = score >= 99.5m;
+            submission.IsSuspicious = isSuspicious;
+            
+            if (isSuspicious)
+            {
+                _logger.LogWarning($"Suspicious score detected for submission {submissionId}: {score}% (flagged for manual review)");
+            }
+
+            // 9. Zapisz wynik
             submission.Score = score;
             submission.Status = "completed";
 
@@ -319,5 +339,17 @@ public class ScoringService : IScoringService
         using var sha256 = SHA256.Create();
         var hashBytes = sha256.ComputeHash(fileData);
         return Convert.ToHexString(hashBytes).ToLowerInvariant();
+    }
+
+    private int CountRows(byte[] fileData, string fileExtension)
+    {
+        var content = Encoding.UTF8.GetString(fileData);
+        
+        return fileExtension.ToLowerInvariant() switch
+        {
+            ".csv" or ".txt" => content.Split('\n', StringSplitOptions.RemoveEmptyEntries).Length - 1, // -1 for header
+            ".json" => JsonDocument.Parse(fileData).RootElement.GetProperty("predictions").GetArrayLength(),
+            _ => 0
+        };
     }
 }

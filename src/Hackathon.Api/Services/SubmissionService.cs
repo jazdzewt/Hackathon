@@ -69,7 +69,7 @@ public class SubmissionService : ISubmissionService
             fileHash = Convert.ToHexString(hashBytes).ToLowerInvariant();
         }
 
-        // 4. Sprawdź czy submission z takim hashem już istnieje dla tego użytkownika
+        // 4. Sprawdź czy submission z takim hashem już istnieje dla tego użytkownika (Anti-cheat: duplicate detection)
         var existingSubmission = await _supabaseClient
             .From<Submission>()
             .Where(s => s.UserId == userId)
@@ -80,6 +80,20 @@ public class SubmissionService : ISubmissionService
         if (existingSubmission.Models.Any())
         {
             throw new InvalidOperationException("This file has already been submitted");
+        }
+
+        // 4b. Anti-cheat: Submission cooldown period (max 5 submissions per hour)
+        var oneHourAgo = DateTime.UtcNow.AddHours(-1);
+        var recentSubmissions = await _supabaseClient
+            .From<Submission>()
+            .Where(s => s.UserId == userId)
+            .Where(s => s.ChallengeId == challengeId)
+            .Where(s => s.SubmittedAt >= oneHourAgo)
+            .Get();
+
+        if (recentSubmissions.Models.Count >= 5)
+        {
+            throw new InvalidOperationException("Too many submissions. Please wait before submitting again (max 5 per hour)");
         }
 
         // 5. Upload pliku do Storage
@@ -125,11 +139,12 @@ public class SubmissionService : ISubmissionService
 
         _logger.LogInformation($"Submission {submissionId} created for user {userId} on challenge {challengeId}");
 
-        // 7. Asynchroniczne uruchomienie oceniania w tle
+        // 7. Asynchroniczne uruchomienie oceniania w tle (z małym opóźnieniem dla database replication)
         _ = Task.Run(async () =>
         {
             try
             {
+                await Task.Delay(500); // Poczekaj 500ms na replikację bazy
                 await EvaluateSubmissionAsync(submissionId);
             }
             catch (Exception ex)
