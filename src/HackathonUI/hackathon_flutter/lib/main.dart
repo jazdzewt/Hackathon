@@ -9,6 +9,7 @@ import 'pages/register.dart';
 import 'services/token_storage.dart';
 import 'pages/challenge_user_page.dart';
 import 'pages/challenge_admin_page.dart';
+
 void main() {
   runApp(ChangeNotifierProvider(
       create: (context) => ChallengeProvider(),
