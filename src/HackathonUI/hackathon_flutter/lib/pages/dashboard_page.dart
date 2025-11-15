@@ -29,11 +29,8 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   void initState() {
     super.initState();
-    // Używamy 'addPostFrameCallback', aby mieć pewność, że widget
-    // jest już zbudowany, zanim zawołamy providera.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      //context.read(),
-      // ponieważ jesteśmy w callbacku i nie chcemy nasłuchiwać zmian.
+    // Wywołaj ładowanie natychmiast, bez czekania na pierwszy frame
+    Future.microtask(() {
       context.read<ChallengeProvider>().loadStateFromCache();
     });
   }

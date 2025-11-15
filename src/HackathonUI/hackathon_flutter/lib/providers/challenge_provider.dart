@@ -60,9 +60,9 @@ class ChallengeProvider with ChangeNotifier {
     try {
       final response = await http.get(
         url,
-        
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
         },
       );
 
@@ -116,10 +116,12 @@ class ChallengeProvider with ChangeNotifier {
     // Zapobiegaj wielokrotnemu wczytywaniu (np. przy hot-reload)
     if (_stateLoaded) return;
 
+    _stateLoaded = true;
+    notifyListeners(); // Powiadom od razu, że zaczynamy
+
     final prefs = await SharedPreferences.getInstance();
     _currentPage = prefs.getInt(_pageCacheKey) ?? 1;
 
-    _stateLoaded = true;
     await loadChallengesFromApi();
     notifyListeners(); // Powiadom widgety, że wczytaliśmy stan
   }

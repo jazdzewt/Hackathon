@@ -29,6 +29,15 @@ class ChallengeListWidget extends StatelessWidget {
     final provider = context.watch<ChallengeProvider>();
     final challenges = provider.challengesForCurrentPage;
 
+    // Pokaż loading indicator gdy dane się ładują
+    if (provider.isLoading && challenges.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32.0),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
 
     return Column(
       children: [
