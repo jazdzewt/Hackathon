@@ -40,6 +40,16 @@ if (string.IsNullOrEmpty(supabaseUrl) || string.IsNullOrEmpty(supabaseKey))
 {
     throw new InvalidOperationException("Supabase URL i Key muszą być skonfigurowane w appsettings.json");
 }
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("DevCors", policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
+});
+
 
 builder.Services.AddSingleton(provider => 
 {
@@ -71,7 +81,7 @@ app.UseMiddleware<Hackathon.Api.Middleware.SupabaseAuthMiddleware>();
 
 app.UseAuthentication();
 app.UseAuthorization();
-
+app.UseCors("DevCors");
 // Map controllers
 app.MapControllers();
 

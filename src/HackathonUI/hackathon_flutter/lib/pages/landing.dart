@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:hackathon_flutter/theme/colors.dart';
 import 'package:go_router/go_router.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import '../services/token_storage.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -19,6 +22,90 @@ class LoginTextStyle {
 class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
+  bool _isLoading = false;
+
+  Future<bool> loginUser({
+    required String email,
+    required String password,
+  }) async {
+    final url = Uri.parse('http://localhost:5043/api/Auth/login');
+
+    try {
+      final response = await http
+          .post(
+            url,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'email': email,
+              'password': password,
+            }),
+          )
+          .timeout(const Duration(seconds: 12));
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final data = jsonDecode(response.body);
+        debugPrint('Login response: $data');
+        
+        if (data is Map<String, dynamic> && data.containsKey('accessToken')) {
+          await TokenStorage.saveToken(data['accessToken']);
+          debugPrint('Token zapisany: ${data['accessToken']}');
+          
+          if (data.containsKey('refreshToken')) {
+            await TokenStorage.saveRefreshToken(data['refreshToken']);
+          }
+          
+          final savedToken = await TokenStorage.getToken();
+          debugPrint('Token odczytany: $savedToken');
+          if (!mounted) return false;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Logowanie powiodło się!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          return true;
+        }
+      }
+
+      String extractMsg(String error) {
+        try {
+          final jsonStart = error.indexOf('{');
+          if (jsonStart == -1) return error;
+          final jsonPart = error.substring(jsonStart);
+          final parsed = jsonDecode(jsonPart);
+          if (parsed is Map<String, dynamic> && parsed.containsKey('msg')) {
+            return parsed['msg'];
+          }
+          return error;
+        } catch (e) {
+          return error;
+        }
+      }
+
+      final data = jsonDecode(response.body);
+      String errorMessage = 'Nie udało się zalogować';
+      if (data is Map<String, dynamic>) {
+        if (data.containsKey('message')) {
+          errorMessage = extractMsg(data['message'].toString());
+        }
+      }
+
+      if (!mounted) return false;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
+      );
+      return false;
+    } catch (e) {
+      if (!mounted) return false;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Wyjątek podczas logowania: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return false;
+    }
+  }
 
   @override
   void dispose() {
@@ -141,7 +228,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                         style: ElevatedButton.styleFrom(
                                           backgroundColor: AppColors.primary,
                                         ),
-                                        onPressed: () {
+                                        onPressed: _isLoading
+                                            ? null
+                                            : () async {
                                           setState(() {
                                             _submitted = true;
                                           });
@@ -153,17 +242,40 @@ class _HomeScreenState extends State<HomeScreen> {
                                             final password =
                                                 passwordController.text;
 
-                                            print(
-                                              'Email: $email, Hasło: $password',
+                                            setState(() {
+                                              _isLoading = true;
+                                            });
+                                            
+                                            final success = await loginUser(
+                                              email: email,
+                                              password: password,
                                             );
+                                            
+                                            if (!mounted) return;
+                                            setState(() {
+                                              _isLoading = false;
+                                            });
+                                            
+                                            if (success) {
+                                              GoRouter.of(context).go('/dashboard');
+                                            }
                                           }
                                         },
-                                        child: const Text(
-                                          'Zaloguj',
-                                          style: TextStyle(
-                                            color: AppColors.background,
-                                          ),
-                                        ),
+                                        child: _isLoading
+                                            ? const SizedBox(
+                                                width: 18,
+                                                height: 18,
+                                                child: CircularProgressIndicator(
+                                                  strokeWidth: 2,
+                                                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.background),
+                                                ),
+                                              )
+                                            : const Text(
+                                                'Zaloguj',
+                                                style: TextStyle(
+                                                  color: AppColors.background,
+                                                ),
+                                              ),
                                       ),
                                     ),
                                     const SizedBox(height: 12),

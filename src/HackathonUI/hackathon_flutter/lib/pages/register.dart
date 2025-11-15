@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:hackathon_flutter/theme/colors.dart';
 import 'package:go_router/go_router.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import '../services/token_storage.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -22,6 +25,104 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController usernameController = TextEditingController();
   final TextEditingController passwordConfirmationController =
       TextEditingController();
+  bool _isLoading = false;
+
+  String extractMsg(String error) {
+    try {
+      final jsonStart = error.indexOf('{');
+      if (jsonStart == -1) return error;
+      final jsonPart = error.substring(jsonStart);
+      final parsed = jsonDecode(jsonPart);
+      if (parsed is Map<String, dynamic> && parsed.containsKey('msg')) {
+        return parsed['msg'];
+      }
+      return error;
+    } catch (e) {
+      return error;
+    }
+  }
+
+  Future<bool> registerUser({
+    required String username,
+    required String email,
+    required String password,
+    required String passwordConfirmation,
+  }) async {
+  final url = Uri.parse('http://localhost:5043/api/Auth/register');
+
+    setState(() => _isLoading = true);
+
+    try {
+      final response = await http
+          .post(
+            url,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'email': email,
+              'password': password,
+              'confirmPassword': passwordConfirmation,
+              'username': username,
+            }),
+          )
+          .timeout(const Duration(seconds: 12));
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        // Sukces 1234567
+        final data = jsonDecode(response.body);
+        debugPrint('Response data: $data');
+        
+        // Zapisz token
+        if (data is Map<String, dynamic> && data.containsKey('accessToken')) {
+          await TokenStorage.saveToken(data['accessToken']);
+          debugPrint('Token zapisany: ${data['accessToken']}');
+          
+          if (data.containsKey('refreshToken')) {
+            await TokenStorage.saveRefreshToken(data['refreshToken']);
+          }
+          
+          // Weryfikacja
+          final savedToken = await TokenStorage.getToken();
+          debugPrint('Token odczytany: $savedToken');
+        }
+        
+        if (!mounted) return false;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Rejestracja powiodła się!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        return true;
+      }
+      // Parsujemy błąd z JSON
+      final data = jsonDecode(response.body);
+      String errorMessage = 'Nie udało się zarejestrować';
+      if (data is Map<String, dynamic>) {
+        if (data.containsKey('error')) {
+          // Przygotowujemy komunikat
+          errorMessage = extractMsg(data['error'].toString());
+        } else if (data.containsKey('message')) {
+          errorMessage = data['message'];
+        }
+      }
+
+      if (!mounted) return false;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
+      );
+      return false;
+    } catch (e) {
+      if (!mounted) return false;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Wyjątek podczas rejestracji: $e'), backgroundColor: Colors.red),
+      );
+      return false;
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+
 
   @override
   void dispose() {
@@ -178,7 +279,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                         style: ElevatedButton.styleFrom(
                                           backgroundColor: AppColors.primary,
                                         ),
-                                        onPressed: () {
+                                        onPressed: _isLoading
+                                            ? null
+                                            : () async {
                                           setState(() {
                                             _submitted = true;
                                           });
@@ -195,17 +298,39 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                             final passwordConfirmation =
                                                 passwordConfirmationController
                                                     .text;
-                                            print(
-                                              'Nazwa użytkownika: $username, Hasło: $password, Email: $email, Powtórzone hasło: $passwordConfirmation',
+                                            setState(() {
+                                              _isLoading = true;
+                                            });
+                                            final success = await registerUser(
+                                              username: username,
+                                              email: email,
+                                              password: password,
+                                              passwordConfirmation: passwordConfirmation,
                                             );
+                                            if (!mounted) return;
+                                            setState(() {
+                                              _isLoading = false;
+                                            });
+                                            if (success) {
+                                              GoRouter.of(context).go('/dashboard');
+                                            }
                                           }
                                         },
-                                        child: const Text(
-                                          'Rejestruj',
-                                          style: TextStyle(
-                                            color: AppColors.background,
-                                          ),
-                                        ),
+                                        child: _isLoading
+                                            ? const SizedBox(
+                                                width: 18,
+                                                height: 18,
+                                                child: CircularProgressIndicator(
+                                                  strokeWidth: 2,
+                                                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.background),
+                                                ),
+                                              )
+                                            : const Text(
+                                                'Rejestruj',
+                                                style: TextStyle(
+                                                  color: AppColors.background,
+                                                ),
+                                              ),
                                       ),
                                     ),
                                     const SizedBox(height: 12),
@@ -220,10 +345,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                             splashFactory:
                                                 NoSplash.splashFactory,
                                           ).copyWith(
-                                            overlayColor:
-                                                WidgetStateProperty.all(
-                                                  Colors.transparent,
-                                                ),
+                                            overlayColor: WidgetStateProperty.all(
+                                              Colors.transparent,
+                                            ),
                                           ),
                                       onPressed: () {
                                         GoRouter.of(context).go('/');
