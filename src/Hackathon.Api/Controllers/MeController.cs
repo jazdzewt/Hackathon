@@ -18,6 +18,7 @@ public class MeController : ControllerBase
         var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         var email = User.FindFirst(ClaimTypes.Email)?.Value;
         var role = User.FindFirst(ClaimTypes.Role)?.Value;
+        var displayName = User.FindFirst(ClaimTypes.Name)?.Value;
 
         if (string.IsNullOrEmpty(userId))
         {
@@ -28,6 +29,7 @@ public class MeController : ControllerBase
         {
             id = userId,
             email = email,
+            displayName = displayName,
             role = role,
             isAdmin = role == "admin"
         });

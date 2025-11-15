@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Hackathon.Api.Models;
 using Hackathon.Api.DTOs;
 using Supabase;
@@ -26,6 +27,7 @@ public class SubmissionsController : ControllerBase
     /// TO JEST NAJWAŻNIEJSZY ENDPOINT - TU ŁĄCZY SIĘ STORAGE Z BAZĄ!
     /// </summary>
     [HttpPost]
+    [EnableRateLimiting("submissions")]
     [Consumes("multipart/form-data")]
     [ApiExplorerSettings(IgnoreApi = true)] // Ukryj w Swaggerze - użyj Postmana
     public async Task<IActionResult> Submit([FromForm] IFormFile file, [FromForm] string challengeId)

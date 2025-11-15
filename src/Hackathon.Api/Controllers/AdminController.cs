@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Hackathon.Api.DTOs.Admin;
 using Hackathon.Api.DTOs.Challenges;
 using Hackathon.Api.DTOs.Submissions;
@@ -10,6 +11,7 @@ namespace Hackathon.Api.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize(Roles = "admin")]
+[EnableRateLimiting("admin")]
 public class AdminController : ControllerBase
 {
     private readonly IAdminService _adminService;
