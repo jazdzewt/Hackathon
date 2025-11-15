@@ -56,8 +56,16 @@ class ChallengeListWidget extends StatelessWidget {
                 subtitle: Text(challenge.description,
                     maxLines: 2, overflow: TextOverflow.ellipsis),
                 trailing: const Icon(Icons.arrow_forward_ios),
-                onTap: () {
-                  context.go('/challenge/${challenge.id}');
+                onTap: () async {
+                  final json = await context.read<ChallengeProvider>().fetchCurrentUser();
+                  String role = json?['isAdmin'] == true ? 'admin' : 'user';
+                  if (context.mounted) {
+                    if (role == 'admin') {
+                      context.go('/challengeAdmin/${challenge.id}');
+                    }else{
+                      context.go('/challenge/${challenge.id}');
+                    }
+                  }
                 },
               ),
             );

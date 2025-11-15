@@ -8,7 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'pages/register.dart';
 import 'services/token_storage.dart';
 import 'pages/challenge_user_page.dart';
-
+import 'pages/challenge_admin_page.dart';
 void main() {
   runApp(ChangeNotifierProvider(
       create: (context) => ChallengeProvider(),
@@ -42,6 +42,13 @@ class MyApp extends StatelessWidget {
           builder: (context, state) {
             final challengeId = state.pathParameters['id']!;
             return ChallengeUserPage(challengeId: challengeId);
+          },
+        ),
+        GoRoute(
+          path: '/challengeAdmin/:id', // id param
+          builder: (context, state) {
+            final challengeId = state.pathParameters['id']!;
+            return ChallengeAdminPage(challengeId: challengeId);
           },
         ),
       ],

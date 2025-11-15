@@ -131,4 +131,36 @@ class ChallengeProvider with ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     prefs.setInt(_pageCacheKey, _currentPage);
   }
+
+  /// Pobiera dane użytkownika z /api/Me
+  Future<Map<String, dynamic>?> fetchCurrentUser() async {
+    final token = await TokenStorage.getToken();
+    if (token == null) {
+      print('Brak tokenu dla /api/Me');
+      return null;
+    }
+
+    final url = Uri.parse('http://localhost:5043/api/Me');
+    try {
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      print('Odpowiedź /api/Me: ${response.body}');
+      print('Status code: ${response.statusCode}');
+      
+      if (response.statusCode == 200) {
+        return json.decode(response.body) as Map<String, dynamic>;
+      } else {
+        print('Błąd: status ${response.statusCode}');
+        return null;
+      }
+    } catch (e) {
+      print('Błąd zapytania /api/Me: $e');
+      return null;
+    }
+  }
 }
