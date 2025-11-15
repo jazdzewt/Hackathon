@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 import '../services/token_storage.dart';
 import '../providers/challenge_provider.dart';
 import 'dart:html' as html;
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class ChallengeUserPage extends StatefulWidget {
   // 1. Odbieramy 'challengeId' przekazane z routera
@@ -165,29 +167,66 @@ class _ChallengeUserPageState extends State<ChallengeUserPage> {
 
                     try {
                       final url = 'http://localhost:5043/api/Challenges/${widget.challengeId}/dataset';
-                      final anchor = html.AnchorElement(href: url)
-                        ..setAttribute('download', 'dataset_${widget.challengeId}.csv')
-                        ..setAttribute('target', '_blank')
-                        ..style.display = 'none';
-                      
-                      html.document.body?.append(anchor);
-                      anchor.click();
-                      anchor.remove();
+                      final response = await http.get(
+                        Uri.parse(url),
+                        headers: {
+                          'Authorization': 'Bearer $token',
+                        },
+                      );
 
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Pobieranie datasetu...'),
-                            backgroundColor: Colors.green,
-                          ),
-                        );
+                      if (response.statusCode == 200) {
+                        // Sukces - pobierz plik
+                        final blob = html.Blob([response.bodyBytes]);
+                        final blobUrl = html.Url.createObjectUrlFromBlob(blob);
+                        html.AnchorElement(href: blobUrl)
+                          ..setAttribute('download', 'dataset_${widget.challengeId}.csv')
+                          ..click();
+                        html.Url.revokeObjectUrl(blobUrl);
+
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Plik pobrany pomyślnie!'),
+                              backgroundColor: Colors.green,
+                              duration: Duration(seconds: 1),
+                            ),
+                          );
+                        }
+                      } else {
+                        // Błąd - wyciągnij error z JSON
+                        String errorMessage = 'Błąd pobierania: ${response.statusCode}';
+                        if (response.body.isNotEmpty) {
+                          try {
+                            final data = json.decode(response.body);
+                            final error = data['error'] ?? '';
+                            final details = data['details'] ?? '';
+                            if (error.isNotEmpty || details.isNotEmpty) {
+                              errorMessage = [error, details].where((s) => s.isNotEmpty).join(', ');
+                            } else {
+                              errorMessage = response.body;
+                            }
+                          } catch (e) {
+                            errorMessage = response.body;
+                          }
+                        }
+                        
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(errorMessage),
+                              backgroundColor: Colors.red,
+                              duration: const Duration(seconds: 3),
+                            ),
+                          );
+                        }
                       }
                     } catch (e) {
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('Błąd pobierania: $e'),
+                            content: Text('Błąd sieci: $e'),
                             backgroundColor: Colors.red,
+                            duration: const Duration(seconds: 3),
                           ),
                         );
                       }
