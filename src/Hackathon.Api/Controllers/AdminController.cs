@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Hackathon.Api.DTOs.Admin;
 using Hackathon.Api.DTOs.Challenges;
 using Hackathon.Api.DTOs.Submissions;
@@ -10,69 +11,224 @@ namespace Hackathon.Api.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize(Roles = "admin")]
+[EnableRateLimiting("admin")]
 public class AdminController : ControllerBase
 {
     private readonly IAdminService _adminService;
     private readonly IChallengeService _challengeService;
     private readonly ISubmissionService _submissionService;
+    private readonly IScoringService _scoringService;
+    private readonly ILogger<AdminController> _logger;
 
     public AdminController(
         IAdminService adminService,
         IChallengeService challengeService,
-        ISubmissionService submissionService)
+        ISubmissionService submissionService,
+        IScoringService scoringService,
+        ILogger<AdminController> logger)
     {
         _adminService = adminService;
         _challengeService = challengeService;
         _submissionService = submissionService;
+        _scoringService = scoringService;
+        _logger = logger;
     }
 
     #region Challenge Management
 
     /// <summary>
-    /// Tworzy nowe wyzwanie
+    /// Tworzy nowe wyzwanie (bez datasetu)
     /// </summary>
     [HttpPost("challenges")]
     public async Task<IActionResult> CreateChallenge([FromBody] CreateChallengeDto dto)
     {
-        // TODO: Implementacja tworzenia wyzwania
-        return Ok(new { message = "Challenge created successfully" });
+        try
+        {
+            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            
+            var challenge = new Models.Challenge
+            {
+                // NIE ustawiamy Id - baza wygeneruje UUID automatycznie
+                Title = dto.Name,
+                Description = dto.FullDescription,
+                EvaluationMetric = dto.EvaluationMetric,
+                SubmissionDeadline = dto.EndDate ?? dto.StartDate.AddMonths(1),
+                MaxFileSizeMb = dto.MaxFileSizeMb ?? 100,
+                AllowedFileTypes = dto.AllowedFileTypes,
+                IsActive = true,
+                CreatedBy = userId,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            await _challengeService.CreateChallengeAsync(challenge);
+            
+            return Ok(new { message = "Challenge created successfully", id = challenge.Id });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Error creating challenge", error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Tworzy nowe wyzwanie z datasetem
+    /// </summary>
+    [HttpPost("challenges/with-dataset")]
+    [Consumes("multipart/form-data")]
+    [ApiExplorerSettings(IgnoreApi = true)] // Ukryj w Swaggerze - użyj Postmana
+    public async Task<IActionResult> CreateChallengeWithDataset(
+        [FromForm] string name,
+        [FromForm] string shortDescription,
+        [FromForm] string fullDescription,
+        [FromForm] string rules,
+        [FromForm] string evaluationMetric,
+        [FromForm] DateTime startDate,
+        [FromForm] DateTime? endDate,
+        [FromForm] int? maxFileSizeMb,
+        [FromForm] string? allowedFileTypes, // comma-separated: "csv,json,txt"
+        [FromForm] IFormFile? datasetFile)
+    {
+        try
+        {
+            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            
+            var challenge = new Models.Challenge
+            {
+                // NIE ustawiamy Id - baza wygeneruje UUID automatycznie
+                Title = name,
+                Description = fullDescription,
+                EvaluationMetric = evaluationMetric,
+                SubmissionDeadline = endDate ?? startDate.AddMonths(1),
+                MaxFileSizeMb = maxFileSizeMb ?? 100,
+                AllowedFileTypes = string.IsNullOrEmpty(allowedFileTypes) 
+                    ? null 
+                    : allowedFileTypes.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
+                IsActive = true,
+                CreatedBy = userId,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            // Jeśli jest dataset, upload go do storage
+            if (datasetFile != null && datasetFile.Length > 0)
+            {
+                byte[] fileBytes;
+                using (var memoryStream = new MemoryStream())
+                {
+                    await datasetFile.CopyToAsync(memoryStream);
+                    fileBytes = memoryStream.ToArray();
+                }
+
+                var datasetUrl = await _challengeService.CreateChallengeWithDatasetAsync(
+                    challenge, 
+                    fileBytes, 
+                    datasetFile.FileName);
+
+                return Ok(new 
+                { 
+                    message = "Challenge created successfully with dataset", 
+                    id = challenge.Id,
+                    datasetUrl = datasetUrl
+                });
+            }
+            else
+            {
+                await _challengeService.CreateChallengeAsync(challenge);
+                return Ok(new { message = "Challenge created successfully (no dataset)", id = challenge.Id });
+            }
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Error creating challenge", error = ex.Message });
+        }
     }
 
     /// <summary>
     /// Edytuje istniejące wyzwanie
     /// </summary>
     [HttpPut("challenges/{id}")]
-    public async Task<IActionResult> UpdateChallenge(int id, [FromBody] UpdateChallengeDto dto)
+    public async Task<IActionResult> UpdateChallenge(string id, [FromBody] UpdateChallengeDto dto)
     {
-        // TODO: Implementacja edycji wyzwania
-        return Ok(new { message = "Challenge updated successfully" });
+        try
+        {
+            await _challengeService.UpdateChallengeAsync(id, dto);
+            return Ok(new { message = "Challenge updated successfully" });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Error updating challenge", error = ex.Message });
+        }
     }
 
     /// <summary>
     /// Usuwa wyzwanie
     /// </summary>
     [HttpDelete("challenges/{id}")]
-    public async Task<IActionResult> DeleteChallenge(int id)
+    public async Task<IActionResult> DeleteChallenge(string id)
     {
-        // TODO: Implementacja usuwania wyzwania
-        return Ok(new { message = "Challenge deleted successfully" });
+        try
+        {
+            await _challengeService.DeleteChallengeAsync(id);
+            return Ok(new { message = "Challenge deleted successfully" });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Error deleting challenge", error = ex.Message });
+        }
     }
 
     /// <summary>
-    /// Przesyła plik z poprawnymi odpowiedziami (ground truth)
+    /// Przesyła plik z poprawnymi odpowiedziami (ground truth) - TYLKO ADMIN
     /// </summary>
     [HttpPost("challenges/{id}/ground-truth")]
     [Consumes("multipart/form-data")]
     [ApiExplorerSettings(IgnoreApi = true)] // Ukryj w Swaggerze - użyj Postmana
-    public async Task<IActionResult> UploadGroundTruth(int id, [FromForm] IFormFile file)
+    public async Task<IActionResult> UploadGroundTruth(string id, [FromForm] IFormFile file)
     {
-        if (file == null || file.Length == 0)
+        try
         {
-            return BadRequest(new { message = "File is required" });
-        }
+            if (file == null || file.Length == 0)
+            {
+                return BadRequest(new { error = "File is required" });
+            }
 
-        // TODO: Implementacja przesyłania pliku ground truth
-        return Ok(new { message = "Ground truth file uploaded successfully" });
+            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+            byte[] fileBytes;
+            using (var memoryStream = new MemoryStream())
+            {
+                await file.CopyToAsync(memoryStream);
+                fileBytes = memoryStream.ToArray();
+            }
+
+            // Upload ground-truth do Storage (przez ChallengeService)
+            // Funkcja automatycznie zapisuje URL w challenges.ground_truth_url
+            var groundTruthUrl = await _challengeService.UploadGroundTruthAsync(id, fileBytes, file.FileName);
+
+            _logger.LogInformation($"Ground truth uploaded for challenge {id} by admin {userId}");
+
+            return Ok(new 
+            { 
+                message = "Ground truth file uploaded successfully (hidden from participants)", 
+                groundTruthUrl = groundTruthUrl 
+            });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Error uploading ground truth for challenge {id}");
+            return StatusCode(500, new { error = "Error uploading ground truth", details = ex.Message });
+        }
     }
 
     #endregion
@@ -143,23 +299,82 @@ public class AdminController : ControllerBase
     #region Submission and Leaderboard Management
 
     /// <summary>
-    /// Pobiera wszystkie zgłoszenia dla wyzwania
+    /// Ręcznie ocenia submission (Admin/Judge)
     /// </summary>
-    [HttpGet("submissions/{challengeId}")]
-    public async Task<ActionResult<IEnumerable<SubmissionDto>>> GetChallengeSubmissions(int challengeId)
+    [HttpPost("submissions/{submissionId}/score")]
+    public async Task<IActionResult> ManuallyScoreSubmission(string submissionId, [FromBody] DTOs.Submissions.ManualScoreDto dto)
     {
-        // TODO: Implementacja pobierania zgłoszeń dla wyzwania
-        return Ok(new List<SubmissionDto>());
+        try
+        {
+            var evaluatorId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(evaluatorId))
+            {
+                return Unauthorized(new { error = "Evaluator not authenticated" });
+            }
+
+            await _scoringService.ManuallyScoreSubmissionAsync(submissionId, dto.Score, dto.Notes, evaluatorId);
+
+            _logger.LogInformation($"Submission {submissionId} manually scored by {evaluatorId} with score: {dto.Score}");
+
+            return Ok(new 
+            { 
+                message = "Submission scored successfully", 
+                score = dto.Score,
+                evaluatedBy = evaluatorId
+            });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Error manually scoring submission {submissionId}");
+            return StatusCode(500, new { error = "Error scoring submission", details = ex.Message });
+        }
     }
 
     /// <summary>
-    /// Wymusza ponowne przeliczenie wyniku zgłoszenia
+    /// Pobiera wszystkie zgłoszenia dla wyzwania
     /// </summary>
-    [HttpPost("submissions/{submissionId}/rejudge")]
-    public async Task<IActionResult> RejudgeSubmission(int submissionId)
+    [HttpGet("submissions/challenges/{challengeId}")]
+    public async Task<ActionResult<IEnumerable<SubmissionDto>>> GetChallengeSubmissions(string challengeId)
     {
-        // TODO: Implementacja ponownego oceniania
-        return Ok(new { message = "Submission queued for rejudging" });
+        try
+        {
+            var submissions = await _submissionService.GetChallengeSubmissionsAsync(challengeId);
+            return Ok(submissions);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Error fetching submissions for challenge {challengeId}");
+            return StatusCode(500, new { error = "Error fetching submissions", details = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Wymusza ponowne automatyczne przeliczenie wyniku zgłoszenia
+    /// </summary>
+    [HttpPost("submissions/{submissionId}/reevaluate")]
+    public async Task<IActionResult> ReevaluateSubmission(string submissionId)
+    {
+        try
+        {
+            await _submissionService.EvaluateSubmissionAsync(submissionId);
+            
+            _logger.LogInformation($"Submission {submissionId} queued for re-evaluation");
+
+            return Ok(new { message = "Submission queued for re-evaluation" });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Error re-evaluating submission {submissionId}");
+            return StatusCode(500, new { error = "Error re-evaluating submission", details = ex.Message });
+        }
     }
 
     /// <summary>

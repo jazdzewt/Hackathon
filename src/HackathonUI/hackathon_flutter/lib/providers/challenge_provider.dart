@@ -163,4 +163,36 @@ class ChallengeProvider with ChangeNotifier {
       return null;
     }
   }
+
+  /// Pobiera szczegóły wyzwania z /api/Challenges/{id}
+  Future<Map<String, dynamic>?> fetchChallengeById(String challengeId) async {
+    final token = await TokenStorage.getToken();
+    if (token == null) {
+      print('Brak tokenu dla /api/Challenges/$challengeId');
+      return null;
+    }
+
+    final url = Uri.parse('http://localhost:5043/api/Challenges/$challengeId');
+    try {
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      print('Odpowiedź /api/Challenges/$challengeId: ${response.body}');
+      print('Status code: ${response.statusCode}');
+      
+      if (response.statusCode == 200) {
+        return json.decode(response.body) as Map<String, dynamic>;
+      } else {
+        print('Błąd: status ${response.statusCode}');
+        return null;
+      }
+    } catch (e) {
+      print('Błąd zapytania /api/Challenges/$challengeId: $e');
+      return null;
+    }
+  }
 }

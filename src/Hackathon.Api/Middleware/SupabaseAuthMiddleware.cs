@@ -35,6 +35,22 @@ public class SupabaseAuthMiddleware
                 var userId = jwtToken.Claims.FirstOrDefault(c => c.Type == "sub")?.Value;
                 var email = jwtToken.Claims.FirstOrDefault(c => c.Type == "email")?.Value;
                 
+                // Pobierz display_name z user_metadata
+                var userMetadataClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == "user_metadata")?.Value;
+                string? displayName = null;
+                if (!string.IsNullOrEmpty(userMetadataClaim))
+                {
+                    try
+                    {
+                        var metadata = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(userMetadataClaim);
+                        if (metadata != null && metadata.ContainsKey("display_name"))
+                        {
+                            displayName = metadata["display_name"]?.ToString();
+                        }
+                    }
+                    catch { }
+                }
+                
                 Console.WriteLine($"[AUTH DEBUG] UserId: {userId}");
 
                 if (!string.IsNullOrEmpty(userId))
@@ -50,6 +66,10 @@ public class SupabaseAuthMiddleware
                     
                     Console.WriteLine($"[AUTH DEBUG] Role: {role}");
 
+                    // ⚡ DODAJ userId DO HttpContext.Items (zamiast Session)
+                    context.Items["UserId"] = userId;
+                    context.Items["UserEmail"] = email;
+
                     // Dodaj claims do kontekstu
                     var claims = new List<Claim>
                     {
@@ -57,6 +77,11 @@ public class SupabaseAuthMiddleware
                         new Claim(ClaimTypes.Email, email ?? string.Empty),
                         new Claim(ClaimTypes.Role, role)
                     };
+                    
+                    if (!string.IsNullOrEmpty(displayName))
+                    {
+                        claims.Add(new Claim(ClaimTypes.Name, displayName));
+                    }
 
                     var identity = new ClaimsIdentity(claims, "SupabaseAuth");
                     context.User = new ClaimsPrincipal(identity);
