@@ -147,6 +147,16 @@ if (string.IsNullOrEmpty(supabaseUrl) || string.IsNullOrEmpty(supabaseKey))
 {
     throw new InvalidOperationException("Supabase URL i Key muszą być skonfigurowane w appsettings.json");
 }
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("DevCors", policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
+});
+
 
 builder.Services.AddSingleton(provider => 
 {
@@ -172,7 +182,7 @@ app.UseSerilogRequestLogging(options =>
     {
         diagnosticContext.Set("RequestHost", httpContext.Request.Host.Value);
         diagnosticContext.Set("UserAgent", httpContext.Request.Headers["User-Agent"].ToString());
-        diagnosticContext.Set("RemoteIP", httpContext.Connection.RemoteIpAddress?.ToString());
+        diagnosticContext.Set("RemoteIP", httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown");
     };
 });
 
@@ -193,7 +203,7 @@ app.UseMiddleware<Hackathon.Api.Middleware.SupabaseAuthMiddleware>();
 
 app.UseAuthentication();
 app.UseAuthorization();
-
+app.UseCors("DevCors");
 // Map controllers
 app.MapControllers();
 

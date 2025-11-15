@@ -1,7 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
-using Hackathon.Api.Models;
-using Hackathon.Api.DTOs;
-using Supabase;
+using Hackathon.Api.Services;
 
 namespace Hackathon.Api.Controllers;
 
@@ -9,12 +7,12 @@ namespace Hackathon.Api.Controllers;
 [Route("api/[controller]")]
 public class LeaderboardController : ControllerBase
 {
-    private readonly Client _supabase;
+    private readonly ILeaderboardService _leaderboardService;
     private readonly ILogger<LeaderboardController> _logger;
 
-    public LeaderboardController(Client supabase, ILogger<LeaderboardController> logger)
+    public LeaderboardController(ILeaderboardService leaderboardService, ILogger<LeaderboardController> logger)
     {
-        _supabase = supabase;
+        _leaderboardService = leaderboardService;
         _logger = logger;
     }
 
@@ -22,42 +20,18 @@ public class LeaderboardController : ControllerBase
     /// Pobiera publiczną tablicę wyników dla wyzwania
     /// </summary>
     [HttpGet("{challengeId}")]
-    public async Task<ActionResult<IEnumerable<LeaderboardEntry>>> GetLeaderboard(string challengeId)
+    public async Task<IActionResult> GetLeaderboard(string challengeId)
     {
         try
         {
-            _logger.LogInformation($"Pobieranie leaderboard dla wyzwania: {challengeId}");
-
-            // Pobierz wyniki posortowane od najlepszego
-            var leaderboardResponse = await _supabase
-                .From<Leaderboard>()
-                .Where(l => l.ChallengeId == challengeId)
-                .Get();
-
-            var results = new List<LeaderboardEntry>();
-
-            // Dla każdego wyniku - użyj UserId jako nazwy (nie mamy tabeli users)
-            foreach (var entry in leaderboardResponse.Models)
-            {
-                results.Add(new LeaderboardEntry(
-                    entry.UserId,
-                    entry.UserId, // Użyj UserId jako nazwy (możesz później pobrać z Auth API)
-                    entry.ChallengeId,
-                    entry.BestScore,
-                    entry.LastUpdated
-                ));
-            }
-
-            // Sortuj wyniki (od najwyższego do najniższego)
-            // TODO: Uwzględnij typ metryki (np. RMSE -> niższy lepszy, Accuracy -> wyższy lepszy)
-            var sorted = results.OrderByDescending(r => r.BestScore).ToList();
-
-            return Ok(sorted);
+            // Obsługuj zarówno int jak i UUID
+            var leaderboard = await _leaderboardService.GetLeaderboardAsync(challengeId);
+            return Ok(leaderboard);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Błąd pobierania leaderboard");
-            return BadRequest(new { error = "Błąd pobierania leaderboard", details = ex.Message });
+            _logger.LogError(ex, $"Error fetching leaderboard for challenge {challengeId}");
+            return StatusCode(500, new { error = "Error fetching leaderboard", details = ex.Message });
         }
     }
 }
