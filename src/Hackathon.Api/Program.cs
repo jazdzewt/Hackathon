@@ -34,7 +34,7 @@ builder.Services.AddScoped<ILeaderboardService, LeaderboardService>();
 
 // Configure Supabase
 var supabaseUrl = builder.Configuration["Supabase:Url"];
-var supabaseKey = builder.Configuration["Supabase:Key"];
+var supabaseKey = builder.Configuration["Supabase:ServiceRoleKey"]; // Używamy ServiceRoleKey aby ominąć RLS
 
 if (string.IsNullOrEmpty(supabaseUrl) || string.IsNullOrEmpty(supabaseKey))
 {

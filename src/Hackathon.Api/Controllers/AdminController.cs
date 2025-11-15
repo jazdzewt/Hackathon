@@ -29,7 +29,7 @@ public class AdminController : ControllerBase
     #region Challenge Management
 
     /// <summary>
-    /// Tworzy nowe wyzwanie
+    /// Tworzy nowe wyzwanie (bez datasetu)
     /// </summary>
     [HttpPost("challenges")]
     public async Task<IActionResult> CreateChallenge([FromBody] CreateChallengeDto dto)
@@ -45,6 +45,8 @@ public class AdminController : ControllerBase
                 Description = dto.FullDescription,
                 EvaluationMetric = dto.EvaluationMetric,
                 SubmissionDeadline = dto.EndDate ?? dto.StartDate.AddMonths(1),
+                MaxFileSizeMb = dto.MaxFileSizeMb ?? 100,
+                AllowedFileTypes = dto.AllowedFileTypes,
                 IsActive = true,
                 CreatedBy = userId,
                 CreatedAt = DateTime.UtcNow
@@ -53,6 +55,78 @@ public class AdminController : ControllerBase
             await _challengeService.CreateChallengeAsync(challenge);
             
             return Ok(new { message = "Challenge created successfully", id = challenge.Id });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Error creating challenge", error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Tworzy nowe wyzwanie z datasetem
+    /// </summary>
+    [HttpPost("challenges/with-dataset")]
+    [Consumes("multipart/form-data")]
+    [ApiExplorerSettings(IgnoreApi = true)] // Ukryj w Swaggerze - użyj Postmana
+    public async Task<IActionResult> CreateChallengeWithDataset(
+        [FromForm] string name,
+        [FromForm] string shortDescription,
+        [FromForm] string fullDescription,
+        [FromForm] string rules,
+        [FromForm] string evaluationMetric,
+        [FromForm] DateTime startDate,
+        [FromForm] DateTime? endDate,
+        [FromForm] int? maxFileSizeMb,
+        [FromForm] string? allowedFileTypes, // comma-separated: "csv,json,txt"
+        [FromForm] IFormFile? datasetFile)
+    {
+        try
+        {
+            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            
+            var challenge = new Models.Challenge
+            {
+                Id = Guid.NewGuid().ToString(),
+                Title = name,
+                Description = fullDescription,
+                EvaluationMetric = evaluationMetric,
+                SubmissionDeadline = endDate ?? startDate.AddMonths(1),
+                MaxFileSizeMb = maxFileSizeMb ?? 100,
+                AllowedFileTypes = string.IsNullOrEmpty(allowedFileTypes) 
+                    ? null 
+                    : allowedFileTypes.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
+                IsActive = true,
+                CreatedBy = userId,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            // Jeśli jest dataset, upload go do storage
+            if (datasetFile != null && datasetFile.Length > 0)
+            {
+                byte[] fileBytes;
+                using (var memoryStream = new MemoryStream())
+                {
+                    await datasetFile.CopyToAsync(memoryStream);
+                    fileBytes = memoryStream.ToArray();
+                }
+
+                var datasetUrl = await _challengeService.CreateChallengeWithDatasetAsync(
+                    challenge, 
+                    fileBytes, 
+                    datasetFile.FileName);
+
+                return Ok(new 
+                { 
+                    message = "Challenge created successfully with dataset", 
+                    id = challenge.Id,
+                    datasetUrl = datasetUrl
+                });
+            }
+            else
+            {
+                await _challengeService.CreateChallengeAsync(challenge);
+                return Ok(new { message = "Challenge created successfully (no dataset)", id = challenge.Id });
+            }
         }
         catch (Exception ex)
         {

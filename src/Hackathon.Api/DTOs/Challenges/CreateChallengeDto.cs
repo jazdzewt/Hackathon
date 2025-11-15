@@ -7,5 +7,7 @@ public record CreateChallengeDto(
     string Rules,
     string EvaluationMetric,
     DateTime StartDate,
-    DateTime? EndDate
+    DateTime? EndDate,
+    int? MaxFileSizeMb,
+    string[]? AllowedFileTypes
 );

@@ -7,6 +7,7 @@ namespace Hackathon.Api.Services;
 public class ChallengeService : IChallengeService
 {
     private readonly Client _supabaseClient;
+    private const string DATASETS_BUCKET = "datasets";
 
     public ChallengeService(Client supabaseClient)
     {
@@ -33,6 +34,37 @@ public class ChallengeService : IChallengeService
         await _supabaseClient
             .From<Challenge>()
             .Insert(challenge);
+    }
+
+    public async Task<string> CreateChallengeWithDatasetAsync(Challenge challenge, byte[] datasetFile, string fileName)
+    {
+        // 1. Upload dataset do Supabase Storage
+        var fileExtension = Path.GetExtension(fileName);
+        var storedFileName = $"{challenge.Id}{fileExtension}";
+        var filePath = $"challenges/{storedFileName}";
+
+        await _supabaseClient.Storage
+            .From(DATASETS_BUCKET)
+            .Upload(datasetFile, filePath, new Supabase.Storage.FileOptions
+            {
+                ContentType = GetContentType(fileExtension),
+                Upsert = false
+            });
+
+        // 2. Generuj publiczny URL
+        var publicUrl = _supabaseClient.Storage
+            .From(DATASETS_BUCKET)
+            .GetPublicUrl(filePath);
+
+        // 3. Zapisz URL w challenge
+        challenge.DatasetUrl = publicUrl;
+
+        // 4. Zapisz challenge do bazy
+        await _supabaseClient
+            .From<Challenge>()
+            .Insert(challenge);
+
+        return publicUrl;
     }
 
     public async Task UpdateChallengeAsync(string id, UpdateChallengeDto dto)
@@ -68,5 +100,18 @@ public class ChallengeService : IChallengeService
     public Task UploadGroundTruthAsync(int id, Stream fileStream, string fileName)
     {
         throw new NotImplementedException();
+    }
+
+    private static string GetContentType(string fileExtension)
+    {
+        return fileExtension.ToLowerInvariant() switch
+        {
+            ".csv" => "text/csv",
+            ".json" => "application/json",
+            ".txt" => "text/plain",
+            ".zip" => "application/zip",
+            ".parquet" => "application/octet-stream",
+            _ => "application/octet-stream"
+        };
     }
 }
