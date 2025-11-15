@@ -141,6 +141,67 @@ class _ChallengeUserPageState extends State<ChallengeUserPage> {
               ),
               const SizedBox(height: 32),
 
+              // Przycisk pobierania datasetu
+              SizedBox(
+                width: 300,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14.0),
+                    backgroundColor: Colors.blue,
+                  ),
+                  onPressed: () async {
+                    final token = await TokenStorage.getToken();
+                    if (token == null) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Brak autoryzacji'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                      return;
+                    }
+
+                    try {
+                      final url = 'http://localhost:5043/api/Challenges/${widget.challengeId}/dataset';
+                      final anchor = html.AnchorElement(href: url)
+                        ..setAttribute('download', 'dataset_${widget.challengeId}.csv')
+                        ..setAttribute('target', '_blank')
+                        ..style.display = 'none';
+                      
+                      html.document.body?.append(anchor);
+                      anchor.click();
+                      anchor.remove();
+
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Pobieranie datasetu...'),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Błąd pobierania: $e'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    }
+                  },
+                  icon: const Icon(Icons.download, color: Colors.white),
+                  label: const Text(
+                    'Pobierz Przykładowe Dane',
+                    style: TextStyle(color: Colors.white, fontSize: 16),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
               SizedBox(
                 width: 300,
                 child: ElevatedButton.icon(

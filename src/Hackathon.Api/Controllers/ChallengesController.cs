@@ -99,6 +99,46 @@ public class ChallengesController : ControllerBase
     }
 
     /// <summary>
+    /// Pobiera dataset dla wyzwania (plik z danymi treningowymi)
+    /// </summary>
+    [HttpGet("{id}/dataset")]
+    public async Task<IActionResult> DownloadDataset(string id)
+    {
+        try
+        {
+            var challenge = await _supabase
+                .From<Challenge>()
+                .Where(c => c.Id == id)
+                .Single();
+
+            if (challenge == null)
+            {
+                return NotFound(new { error = "Challenge not found" });
+            }
+
+            if (string.IsNullOrEmpty(challenge.DatasetUrl))
+            {
+                return NotFound(new { error = "Dataset not available for this challenge" });
+            }
+
+            // Pobierz plik z URL
+            using var httpClient = new HttpClient();
+            var fileBytes = await httpClient.GetByteArrayAsync(challenge.DatasetUrl);
+
+            // Wyciągnij nazwę pliku z URL
+            var fileName = Path.GetFileName(new Uri(challenge.DatasetUrl).LocalPath);
+            var contentType = GetContentType(Path.GetExtension(fileName));
+
+            return File(fileBytes, contentType, fileName);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Error downloading dataset for challenge {id}");
+            return StatusCode(500, new { error = "Error downloading dataset", details = ex.Message });
+        }
+    }
+
+    /// <summary>
     /// Aktualizuje wyzwanie (wymaga autoryzacji)
     /// </summary>
     [HttpPut("{id}")]
@@ -140,5 +180,18 @@ public class ChallengesController : ControllerBase
         {
             return StatusCode(500, new { message = "Error deleting challenge", error = ex.Message });
         }
+    }
+
+    private static string GetContentType(string fileExtension)
+    {
+        return fileExtension.ToLowerInvariant() switch
+        {
+            ".csv" => "text/csv",
+            ".json" => "application/json",
+            ".txt" => "text/plain",
+            ".zip" => "application/zip",
+            ".parquet" => "application/octet-stream",
+            _ => "application/octet-stream"
+        };
     }
 }

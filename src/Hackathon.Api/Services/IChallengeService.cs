@@ -13,4 +13,5 @@ public interface IChallengeService
     Task UpdateChallengeAsync(string id, UpdateChallengeDto dto);
     Task DeleteChallengeAsync(string id);
     Task<string> UploadGroundTruthAsync(string challengeId, byte[] fileBytes, string fileName);
+    Task<string> UploadDatasetAsync(string challengeId, byte[] fileBytes, string fileName);
 }

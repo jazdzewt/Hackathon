@@ -46,11 +46,14 @@ public class ScoringService : IScoringService
             submission.Status = "processing";
             await _supabaseClient.From<Submission>().Update(submission);
 
-            // 3. Pobierz challenge
-            var challenge = await _supabaseClient
+            // 3. Pobierz challenge (wymuszamy pobranie wszystkich kolumn)
+            var challengeResponse = await _supabaseClient
                 .From<Challenge>()
+                .Select("*")
                 .Where(c => c.Id == submission.ChallengeId)
-                .Single();
+                .Get();
+
+            var challenge = challengeResponse.Models.FirstOrDefault();
 
             if (challenge == null)
             {
@@ -58,9 +61,12 @@ public class ScoringService : IScoringService
             }
 
             // 4. Sprawdź czy challenge ma ground truth
+            _logger.LogInformation($"Challenge {challenge.Id} GroundTruthUrl: '{challenge.GroundTruthUrl}'");
+            _logger.LogInformation($"Challenge Title: '{challenge.Title}', IsActive: {challenge.IsActive}");
+            
             if (string.IsNullOrEmpty(challenge.GroundTruthUrl))
             {
-                throw new InvalidOperationException($"Ground truth not found for challenge {challenge.Id}");
+                throw new InvalidOperationException($"Ground truth not found for challenge {challenge.Id}. Please upload ground truth file first via /api/Admin/challenges/{challenge.Id}/ground-truth");
             }
 
             // 5. Pobierz pliki

@@ -6,6 +6,8 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart'; // Do formatowania dat
 import 'package:provider/provider.dart';
 import '../providers/challenge_provider.dart';
+import 'dart:html' as html;
+import 'package:file_picker/file_picker.dart';
 
 // WAŻNE: Popraw tę ścieżkę, jeśli jest inna!
 import '../services/token_storage.dart';
@@ -113,6 +115,7 @@ class _ChallengeAdminPageState extends State<ChallengeAdminPage> {
   bool _isSaving = false;
   ChallengeFull? _challenge;
   String? _apiError;
+  int _refreshCounter = 0; // Licznik do wymuszania rebuildu
 
   // Kontrolery formularza
   final _formKey = GlobalKey<FormState>();
@@ -236,6 +239,7 @@ class _ChallengeAdminPageState extends State<ChallengeAdminPage> {
           if (page == 1) _submissions.clear();
           _submissions.addAll(newSubmissions);
           _hasMoreSubmissions = newSubmissions.length == 10;
+          _refreshCounter++; // Wymuszaj rebuild
         });
       } else {
         _showError('Błąd pobierania zgłoszeń: ${response.statusCode}');
@@ -308,6 +312,147 @@ class _ChallengeAdminPageState extends State<ChallengeAdminPage> {
   setState(() => _isSaving = false);
 }
 
+    Future<void> _uploadKey() async {
+  // 1. Wybierz plik
+  FilePickerResult? result = await FilePicker.platform.pickFiles(
+    type: FileType.custom,
+    allowedExtensions: ['txt', 'csv'],
+    withData: true, // Kluczowe dla web, aby mieć file.bytes
+  );
+
+  if (result == null || result.files.first.bytes == null) {
+    // Użytkownik anulował wybieranie lub plik jest pusty
+    _showError('Nie wybrano pliku lub plik jest pusty.');
+    return;
+  }
+
+  // 2. Przygotuj plik i dane
+  final fileBytes = result.files.first.bytes!;
+  final fileName = result.files.first.name;
+  
+  final token = await _getToken();
+  if (token == null) {
+    _showError('Brak autoryzacji');
+    return;
+  }
+
+  setState(() => _isSaving = true); // Zablokuj UI
+
+  // 3. Stwórz zapytanie Multipart
+  final url =
+      Uri.parse('$_apiBaseUrl/Admin/challenges/${widget.challengeId}/ground-truth');
+  final request = http.MultipartRequest('POST', url);
+
+  // 4. Dodaj nagłówki
+  request.headers['Authorization'] = 'Bearer $token';
+  request.headers['Accept'] = 'application/json';
+
+  // 5. Dodaj plik
+  request.files.add(http.MultipartFile.fromBytes(
+    'file', // Nazwa pola, której oczekuje backend
+    fileBytes,
+    filename: fileName,
+  ));
+
+  try {
+    // 6. Wyślij zapytanie
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+
+    if (response.statusCode == 200 || response.statusCode == 204) {
+      // Pokaż sukces
+      if (context.mounted) {
+         ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Klucz odpowiedzi został pomyślnie przesłany!'),
+              backgroundColor: Colors.green,
+            ),
+         );
+      }
+    } else {
+      _showError('Błąd przesyłania klucza: ${response.statusCode} - ${response.body}');
+    }
+  } catch (e) {
+    _showError('Błąd sieci (przesyłanie klucza): $e');
+  }
+
+  setState(() => _isSaving = false); // Odblokuj UI
+}
+
+/// Upload datasetu (dane treningowe dla uczestników)
+Future<void> _uploadDataset() async {
+  // 1. Wybierz plik
+  FilePickerResult? result = await FilePicker.platform.pickFiles(
+    type: FileType.custom,
+    allowedExtensions: ['csv', 'json', 'txt', 'zip', 'parquet'],
+  );
+
+  if (result == null || result.files.isEmpty) {
+    _showError('Nie wybrano pliku');
+    return;
+  }
+
+  final fileBytes = result.files.first.bytes;
+  final fileName = result.files.first.name;
+
+  if (fileBytes == null) {
+    _showError('Błąd odczytu pliku');
+    return;
+  }
+
+  setState(() => _isSaving = true); // Zablokuj UI podczas uploadu
+
+  // 2. Pobierz token
+  final token = await _getToken();
+  if (token == null) {
+    _showError('Brak tokenu autoryzacji');
+    setState(() => _isSaving = false);
+    return;
+  }
+
+  // 3. Stwórz zapytanie Multipart
+  final url =
+      Uri.parse('$_apiBaseUrl/Admin/challenges/${widget.challengeId}/dataset');
+  final request = http.MultipartRequest('POST', url);
+
+  // 4. Dodaj nagłówki
+  request.headers['Authorization'] = 'Bearer $token';
+  request.headers['Accept'] = 'application/json';
+
+  // 5. Dodaj plik
+  request.files.add(http.MultipartFile.fromBytes(
+    'file',
+    fileBytes,
+    filename: fileName,
+  ));
+
+  try {
+    // 6. Wyślij zapytanie
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+
+    if (response.statusCode == 200 || response.statusCode == 204) {
+      // Pokaż sukces
+      if (context.mounted) {
+         ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Dataset został pomyślnie przesłany!'),
+              backgroundColor: Colors.green,
+            ),
+         );
+      }
+      // Odśwież dane wyzwania
+      await _fetchChallengeDetails();
+    } else {
+      _showError('Błąd przesyłania datasetu: ${response.statusCode} - ${response.body}');
+    }
+  } catch (e) {
+    _showError('Błąd sieci (przesyłanie datasetu): $e');
+  }
+
+  setState(() => _isSaving = false);
+}
+
   /// Usuwa wyzwanie (DELETE)
   Future<void> _deleteChallenge() async {
     final bool? confirmed = await showDialog(
@@ -357,6 +502,109 @@ class _ChallengeAdminPageState extends State<ChallengeAdminPage> {
       _showError('Błąd sieci: $e');
     }
     setState(() => _isSaving = false);
+  }
+
+  /// Uruchamia ponowną ewaluację zgłoszenia
+  Future<void> _rejudgeSubmission(String submissionId) async {
+    final token = await _getToken();
+    if (token == null) return;
+
+    final url = '$_apiBaseUrl/Admin/Submissions/$submissionId/reevaluate';
+
+    try {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Uruchamianie ewaluacji...'),
+            duration: Duration(milliseconds: 500),
+          ),
+        );
+      }
+
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: json.encode({}),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 202) {
+        // Odśwież listę zgłoszeń
+        await _fetchSubmissions(page: 1);
+        
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Ewaluacja uruchomiona pomyślnie'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 1),
+            ),
+          );
+        }
+      } else {
+        String errorMessage = 'Błąd ${response.statusCode}';
+        if (response.body.isNotEmpty) {
+          try {
+            final data = json.decode(response.body);
+            final error = data['error'] ?? '';
+            final details = data['details'] ?? '';
+            if (error.isNotEmpty || details.isNotEmpty) {
+              errorMessage = [error, details].where((s) => s.isNotEmpty).join(', ');
+            } else {
+              errorMessage = response.body;
+            }
+          } catch (e) {
+            errorMessage = response.body;
+          }
+        }
+        _showError(errorMessage);
+      }
+    } catch (e) {
+      _showError('Błąd sieci: $e');
+    }
+  }
+
+  /// Pobiera plik submission
+  Future<void> _downloadSubmission(String submissionId, String? fileName) async {
+    final token = await _getToken();
+    if (token == null) return;
+
+    final url = '$_apiBaseUrl/submissions/$submissionId/download';
+
+    try {
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        // Utwórz blob z danych odpowiedzi
+        final blob = html.Blob([response.bodyBytes]);
+        final blobUrl = html.Url.createObjectUrlFromBlob(blob);
+        html.AnchorElement(href: blobUrl)
+          ..setAttribute('download', fileName ?? 'submission_$submissionId')
+          ..click();
+        html.Url.revokeObjectUrl(blobUrl);
+        
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Plik pobrano pomyślnie'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 1),
+            ),
+          );
+        }
+      } else {
+        _showError('Błąd pobierania pliku: ${response.statusCode}');
+      }
+    } catch (e) {
+      _showError('Błąd sieci: $e');
+    }
   }
 
   /// Zapisuje nową ocenę dla zgłoszenia
@@ -520,6 +768,22 @@ class _ChallengeAdminPageState extends State<ChallengeAdminPage> {
                 backgroundColor: Colors.red, foregroundColor: Colors.white),
             onPressed: _deleteChallenge,
           ),
+          // Przycisk dodaj dataset
+          ElevatedButton.icon(
+            icon: const Icon(Icons.upload_file),
+            label: const Text('Dodaj Dataset'),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue, foregroundColor: Colors.white),
+            onPressed: _uploadDataset,
+          ),
+          // Przycisk dodaj klucz do sprawdzenia
+          ElevatedButton.icon(
+            icon: const Icon(Icons.key),
+            label: const Text('Dodaj Klucz Sprawdzenia'),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange, foregroundColor: Colors.white),
+            onPressed: _uploadKey,
+          ),
         ],
       ),
     );
@@ -656,10 +920,13 @@ class _ChallengeAdminPageState extends State<ChallengeAdminPage> {
             DataColumn(label: Text('Data')),
             DataColumn(label: Text('Status')),
             DataColumn(label: Text('Ocena')),
+            DataColumn(label: Text('Ewaluacja')),
             DataColumn(label: Text('Akcje')),
           ],
           rows: _submissions.map((sub) {
-            return DataRow(cells: [
+            return DataRow(
+              key: ValueKey('${sub.id}_$_refreshCounter'),
+              cells: [
               // --- ZMIANA: Pokaż fileName ---
               DataCell(Text(sub.fileName ?? 'ID: ${sub.id}')),
               DataCell(Text(DateFormat('MM-dd HH:mm').format(sub.submittedAt))),
@@ -678,6 +945,7 @@ class _ChallengeAdminPageState extends State<ChallengeAdminPage> {
                 SizedBox(
                   width: 100,
                   child: TextFormField(
+                    key: ValueKey('score_${sub.id}_$_refreshCounter'),
                     initialValue: sub.score?.toString() ?? '',
                     decoration: const InputDecoration(labelText: 'Ocena'),
                     keyboardType: TextInputType.number,
@@ -688,16 +956,16 @@ class _ChallengeAdminPageState extends State<ChallengeAdminPage> {
               ),
               DataCell(
                 IconButton(
+                  icon: const Icon(Icons.refresh),
+                  tooltip: 'Uruchom ewaluację',
+                  onPressed: () => _rejudgeSubmission(sub.id),
+                ),
+              ),
+              DataCell(
+                IconButton(
                   icon: const Icon(Icons.download),
                   tooltip: 'Pobierz plik',
-                  // --- ZMIANA: Logika pobierania ---
-                  // TODO: Backend musi wysłać URL do pobrania, nie tylko nazwę pliku
-                  // Na razie przycisk jest wyłączony
-                  onPressed: null,
-                  // onPressed: sub.fileName == null ? null : () {
-                  //   print('Pobieranie: ${sub.fileName}');
-                  //   // TODO: Potrzebujesz endpointu GET /api/Admin/submissions/download/{submissionId}
-                  // },
+                  onPressed: () => _downloadSubmission(sub.id, sub.fileName),
                 ),
               ),
             ]);
@@ -737,6 +1005,7 @@ class _ChallengeAdminPageState extends State<ChallengeAdminPage> {
 
           final submission = _submissions[index];
           return Card(
+            key: ValueKey('${submission.id}_$_refreshCounter'),
             margin: const EdgeInsets.symmetric(vertical: 4),
             child: Padding(
               padding: const EdgeInsets.all(8.0),
@@ -753,6 +1022,7 @@ class _ChallengeAdminPageState extends State<ChallengeAdminPage> {
                     children: [
                       Expanded(
                         child: TextFormField(
+                          key: ValueKey('score_${submission.id}_$_refreshCounter'),
                           initialValue: submission.score?.toString() ?? '',
                           decoration: const InputDecoration(
                               labelText: 'Ocena', border: OutlineInputBorder()),
@@ -762,10 +1032,14 @@ class _ChallengeAdminPageState extends State<ChallengeAdminPage> {
                         ),
                       ),
                       IconButton(
+                        icon: const Icon(Icons.refresh),
+                        tooltip: 'Uruchom ewaluację',
+                        onPressed: () => _rejudgeSubmission(submission.id),
+                      ),
+                      IconButton(
                         icon: const Icon(Icons.download),
                         tooltip: 'Pobierz plik',
-                        // --- ZMIANA: Logika pobierania ---
-                        onPressed: null, // Na razie wyłączone
+                        onPressed: () => _downloadSubmission(submission.id, submission.fileName),
                       ),
                     ],
                   ),

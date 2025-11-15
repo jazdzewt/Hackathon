@@ -189,6 +189,52 @@ public class AdminController : ControllerBase
     }
 
     /// <summary>
+    /// Upload datasetu do wyzwania (dane treningowe dla uczestników)
+    /// </summary>
+    [HttpPost("challenges/{id}/dataset")]
+    [Consumes("multipart/form-data")]
+    [ApiExplorerSettings(IgnoreApi = true)]
+    public async Task<IActionResult> UploadDataset(string id, [FromForm] IFormFile file)
+    {
+        try
+        {
+            if (file == null || file.Length == 0)
+            {
+                return BadRequest(new { error = "File is required" });
+            }
+
+            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+            byte[] fileBytes;
+            using (var memoryStream = new MemoryStream())
+            {
+                await file.CopyToAsync(memoryStream);
+                fileBytes = memoryStream.ToArray();
+            }
+
+            // Upload datasetu do Storage (przez ChallengeService)
+            var datasetUrl = await _challengeService.UploadDatasetAsync(id, fileBytes, file.FileName);
+
+            _logger.LogInformation($"Dataset uploaded for challenge {id} by admin {userId}");
+
+            return Ok(new 
+            { 
+                message = "Dataset file uploaded successfully (visible to participants)", 
+                datasetUrl = datasetUrl 
+            });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Error uploading dataset for challenge {id}");
+            return StatusCode(500, new { error = "Error uploading dataset", details = ex.Message });
+        }
+    }
+
+    /// <summary>
     /// Przesyła plik z poprawnymi odpowiedziami (ground truth) - TYLKO ADMIN
     /// </summary>
     [HttpPost("challenges/{id}/ground-truth")]

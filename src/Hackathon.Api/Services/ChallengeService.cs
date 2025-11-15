@@ -135,7 +135,10 @@ public class ChallengeService : IChallengeService
             .From(DATASETS_BUCKET)
             .GetPublicUrl(filePath);
 
-        // Aktualizuj challenge
+        Console.WriteLine($"[GROUND TRUTH] Public URL: {publicUrl}");
+        Console.WriteLine($"[GROUND TRUTH] Updating challenge {challengeId}");
+
+        // Pobierz challenge z bazy
         var challenge = await _supabaseClient
             .From<Challenge>()
             .Where(c => c.Id == challengeId)
@@ -146,10 +149,82 @@ public class ChallengeService : IChallengeService
             throw new KeyNotFoundException($"Challenge with id {challengeId} not found");
         }
 
+        // Aktualizuj pole GroundTruthUrl
         challenge.GroundTruthUrl = publicUrl;
+        
+        Console.WriteLine($"[GROUND TRUTH] Before update - GroundTruthUrl: '{challenge.GroundTruthUrl}'");
+
+        // Zapisz zmiany
         await _supabaseClient
             .From<Challenge>()
             .Update(challenge);
+
+        Console.WriteLine($"[GROUND TRUTH] Challenge {challengeId} updated successfully");
+
+        // Zweryfikuj czy zapisało się poprawnie
+        var updatedChallenge = await _supabaseClient
+            .From<Challenge>()
+            .Where(c => c.Id == challengeId)
+            .Single();
+        
+        Console.WriteLine($"[GROUND TRUTH] Verification - GroundTruthUrl in DB: '{updatedChallenge?.GroundTruthUrl}'");
+
+        return publicUrl;
+    }
+
+    public async Task<string> UploadDatasetAsync(string challengeId, byte[] fileBytes, string fileName)
+    {
+        var fileExtension = Path.GetExtension(fileName);
+        var storedFileName = $"{challengeId}{fileExtension}";
+        var filePath = $"challenges/{storedFileName}";
+
+        Console.WriteLine($"[DATASET] Uploading to path: {filePath}");
+
+        await _supabaseClient.Storage
+            .From(DATASETS_BUCKET)
+            .Upload(fileBytes, filePath, new Supabase.Storage.FileOptions
+            {
+                ContentType = GetContentType(fileExtension),
+                Upsert = true
+            });
+
+        var publicUrl = _supabaseClient.Storage
+            .From(DATASETS_BUCKET)
+            .GetPublicUrl(filePath);
+
+        Console.WriteLine($"[DATASET] Public URL: {publicUrl}");
+        Console.WriteLine($"[DATASET] Updating challenge {challengeId}");
+
+        // Pobierz challenge z bazy
+        var challenge = await _supabaseClient
+            .From<Challenge>()
+            .Where(c => c.Id == challengeId)
+            .Single();
+
+        if (challenge == null)
+        {
+            throw new KeyNotFoundException($"Challenge with id {challengeId} not found");
+        }
+
+        // Aktualizuj pole DatasetUrl
+        challenge.DatasetUrl = publicUrl;
+        
+        Console.WriteLine($"[DATASET] Before update - DatasetUrl: '{challenge.DatasetUrl}'");
+
+        // Zapisz zmiany
+        await _supabaseClient
+            .From<Challenge>()
+            .Update(challenge);
+
+        Console.WriteLine($"[DATASET] Challenge {challengeId} updated successfully");
+
+        // Zweryfikuj czy zapisało się poprawnie
+        var updatedChallenge = await _supabaseClient
+            .From<Challenge>()
+            .Where(c => c.Id == challengeId)
+            .Single();
+        
+        Console.WriteLine($"[DATASET] Verification - DatasetUrl in DB: '{updatedChallenge?.DatasetUrl}'");
 
         return publicUrl;
     }
