@@ -35,6 +35,13 @@ class MyApp extends StatelessWidget {
           path: '/dashboard',
           builder: (context, state) => const DashboardPage(),
         ),
+        GoRoute(
+          path: '/challenge/:id', // id param
+          builder: (context, state) {
+            final challengeId = state.pathParameters['id']!;
+            return ChallengeDetailPage(challengeId: challengeId);
+          },
+        ),
       ],
     );
     return MaterialApp.router(

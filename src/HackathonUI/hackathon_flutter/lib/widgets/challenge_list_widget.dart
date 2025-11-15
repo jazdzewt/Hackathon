@@ -23,15 +23,18 @@ class ChallengeListWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Używamy 'context.watch' aby widget PRZEBUDOWAŁ SIĘ,
+    // gdy 'notifyListeners()' zostanie wywołane po zmianie strony
     final provider = context.watch<ChallengeProvider>();
     final challenges = provider.challengesForCurrentPage;
+
 
     return Column(
       children: [
         ListView.builder(
-          key: const PageStorageKey<String>('challengeList'),
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
+          key: const PageStorageKey<String>('challengeList'), 
+          shrinkWrap: true, 
+          physics: const NeverScrollableScrollPhysics(), 
           itemCount: challenges.length,
           itemBuilder: (context, index) {
             final challenge = challenges[index];
@@ -44,12 +47,14 @@ class ChallengeListWidget extends StatelessWidget {
                     maxLines: 2, overflow: TextOverflow.ellipsis),
                 trailing: const Icon(Icons.arrow_forward_ios),
                 onTap: () {
-                  print('Naciśnięto wyzwanie: ${challenge.id}');
+                  context.go('/challenge/${challenge.id}');
                 },
               ),
             );
           },
         ),
+
+        
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 16.0),
           child: Row(
