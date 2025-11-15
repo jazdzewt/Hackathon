@@ -131,7 +131,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Goldman Sachs')),
+      appBar: AppBar(title: const Text('Company.example')),
       body: Row(
         children: [
           Expanded(
@@ -163,7 +163,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             child: Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 16),
                               child: Text(
-                                'Welcome to Goldman Sachs Hackathons!',
+                                'Welcome to Company.example Hackathons!',
                                 style: Theme.of(context).textTheme.headlineLarge,
                                 textAlign: TextAlign.center,
                               ),
