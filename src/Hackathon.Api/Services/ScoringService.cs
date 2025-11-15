@@ -91,7 +91,7 @@ public class ScoringService : IScoringService
             
             if (isSuspicious)
             {
-                _logger.LogWarning($"Suspicious score detected for submission {submissionId}: {score}% (flagged for manual review)");
+                _logger.LogWarning($"Suspicious score detected for submission {submission.Id}: {score}% (flagged for manual review)");
             }
 
             // 9. Zapisz wynik
