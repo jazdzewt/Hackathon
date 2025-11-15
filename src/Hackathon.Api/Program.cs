@@ -137,6 +137,7 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IChallengeService, ChallengeService>();
 builder.Services.AddScoped<ISubmissionService, SubmissionService>();
 builder.Services.AddScoped<ILeaderboardService, LeaderboardService>();
+builder.Services.AddScoped<IScoringService, ScoringService>();
 
 // Configure Supabase
 var supabaseUrl = builder.Configuration["Supabase:Url"];

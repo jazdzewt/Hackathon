@@ -31,14 +31,34 @@ public class ChallengeService : IChallengeService
 
     public async Task CreateChallengeAsync(Challenge challenge)
     {
-        await _supabaseClient
+        var response = await _supabaseClient
             .From<Challenge>()
             .Insert(challenge);
+        
+        // Supabase zwraca wstawiony obiekt z faktycznym ID
+        var insertedChallenge = response.Models.FirstOrDefault();
+        if (insertedChallenge != null)
+        {
+            challenge.Id = insertedChallenge.Id;
+        }
     }
 
     public async Task<string> CreateChallengeWithDatasetAsync(Challenge challenge, byte[] datasetFile, string fileName)
     {
-        // 1. Upload dataset do Supabase Storage
+        // 1. Zapisz challenge do bazy NAJPIERW, aby uzyskać wygenerowane ID
+        var response = await _supabaseClient
+            .From<Challenge>()
+            .Insert(challenge);
+        
+        var insertedChallenge = response.Models.FirstOrDefault();
+        if (insertedChallenge == null)
+        {
+            throw new Exception("Failed to create challenge in database");
+        }
+        
+        challenge.Id = insertedChallenge.Id;
+
+        // 2. Upload dataset do Supabase Storage używając faktycznego ID
         var fileExtension = Path.GetExtension(fileName);
         var storedFileName = $"{challenge.Id}{fileExtension}";
         var filePath = $"challenges/{storedFileName}";
@@ -51,18 +71,17 @@ public class ChallengeService : IChallengeService
                 Upsert = false
             });
 
-        // 2. Generuj publiczny URL
+        // 3. Generuj publiczny URL
         var publicUrl = _supabaseClient.Storage
             .From(DATASETS_BUCKET)
             .GetPublicUrl(filePath);
 
-        // 3. Zapisz URL w challenge
+        // 4. Aktualizuj challenge z DatasetUrl
         challenge.DatasetUrl = publicUrl;
-
-        // 4. Zapisz challenge do bazy
         await _supabaseClient
             .From<Challenge>()
-            .Insert(challenge);
+            .Where(c => c.Id == challenge.Id)
+            .Update(challenge);
 
         return publicUrl;
     }
@@ -97,9 +116,41 @@ public class ChallengeService : IChallengeService
             .Delete();
     }
 
-    public Task UploadGroundTruthAsync(int id, Stream fileStream, string fileName)
+    public async Task<string> UploadGroundTruthAsync(string challengeId, byte[] fileBytes, string fileName)
     {
-        throw new NotImplementedException();
+        var fileExtension = Path.GetExtension(fileName);
+        var storedFileName = $"{challengeId}{fileExtension}";
+        var filePath = $"ground-truth/{storedFileName}";
+
+        await _supabaseClient.Storage
+            .From(DATASETS_BUCKET)
+            .Upload(fileBytes, filePath, new Supabase.Storage.FileOptions
+            {
+                ContentType = GetContentType(fileExtension),
+                Upsert = true
+            });
+
+        var publicUrl = _supabaseClient.Storage
+            .From(DATASETS_BUCKET)
+            .GetPublicUrl(filePath);
+
+        // Aktualizuj challenge
+        var challenge = await _supabaseClient
+            .From<Challenge>()
+            .Where(c => c.Id == challengeId)
+            .Single();
+
+        if (challenge == null)
+        {
+            throw new KeyNotFoundException($"Challenge with id {challengeId} not found");
+        }
+
+        challenge.GroundTruthUrl = publicUrl;
+        await _supabaseClient
+            .From<Challenge>()
+            .Update(challenge);
+
+        return publicUrl;
     }
 
     private static string GetContentType(string fileExtension)
