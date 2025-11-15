@@ -6,12 +6,11 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart'; // Do formatowania dat
 
 // WAŻNE: Popraw tę ścieżkę, jeśli jest inna!
-import '../services/token_storage.dart'; 
+import '../services/token_storage.dart';
 
 // --- MODELE DANYCH ---
 
 // Model ChallengeFull jest zgodny z Twoim JSON-em 'GET {id}' i 'PUT {id}'
-// (zakładając, że PUT wysyła ten sam model, co GET pobiera)
 class ChallengeFull {
   final String id;
   String title;
@@ -66,44 +65,31 @@ class ChallengeFull {
 
 // --- ZAKTUALIZOWANY MODEL SUBMISSION ---
 // Ten model pasuje teraz do Twojej nowej dokumentacji API
-// (id jako int, status, errorMessage, itd.)
 class Submission {
-  final int id; // Z API: 0
-  final int challengeId; // Z API: 0
-  final String? challengeName; // Z API: "string"
-  final DateTime submittedAt; // Z API: "2025-11-15T03:42:43.441Z"
-  final String? status; // Z API: "string"
-  double? score; // Z API: 0
-  final String? errorMessage; // Z API: "string"
-  
-  // Zostawiam na wszelki wypadek, gdyby API jednak je wysyłało
-  final String? userId; 
-  final String? fileUrl;
+  final String id;
+  final String challengeId;
+  final String? fileName;
+  double? score;
+  final String? status;
+  final DateTime submittedAt;
 
   Submission({
     required this.id,
     required this.challengeId,
-    this.challengeName,
-    required this.submittedAt,
-    this.status,
+    this.fileName,
     this.score,
-    this.errorMessage,
-    this.userId,
-    this.fileUrl,
+    this.status,
+    required this.submittedAt,
   });
 
   factory Submission.fromJson(Map<String, dynamic> json) {
     return Submission(
-      id: json['id'] as int,
-      challengeId: json['challengeId'] as int,
-      challengeName: json['challengeName'],
-      submittedAt: DateTime.parse(json['submittedAt']),
-      status: json['status'],
+      id: json['id'] as String,
+      challengeId: json['challengeId'] as String,
+      fileName: json['fileName'],
       score: (json['score'] as num?)?.toDouble(),
-      errorMessage: json['errorMessage'],
-      // Bezpiecznie spróbuj odczytać stare pola
-      userId: json['userId'],
-      fileUrl: json['fileUrl'],
+      status: json['status'],
+      submittedAt: DateTime.parse(json['submittedAt']),
     );
   }
 }
@@ -154,7 +140,8 @@ class _ChallengeAdminPageState extends State<ChallengeAdminPage> {
     _datasetUrlController = TextEditingController();
 
     _scrollController.addListener(() {
-      if (_scrollController.position.pixels == _scrollController.position.maxScrollExtent) {
+      if (_scrollController.position.pixels ==
+          _scrollController.position.maxScrollExtent) {
         if (!_isLoadingSubmissions && _hasMoreSubmissions) {
           _fetchSubmissions(page: _submissionsPage + 1);
         }
@@ -184,15 +171,17 @@ class _ChallengeAdminPageState extends State<ChallengeAdminPage> {
     setState(() => _isLoading = true);
     final token = await _getToken();
     if (token == null) {
-      setState(() { _apiError = 'Brak autoryzacji'; _isLoading = false; });
+      setState(() {
+        _apiError = 'Brak autoryzacji';
+        _isLoading = false;
+      });
       return;
     }
 
     try {
-      // Ten endpoint nie był w nowej liście, zakładamy, że jest poprawny
-      // (np. GET /api/Challenges/1)
+      // Zakładamy, że ten endpoint GET /api/Challenges/{id} jest poprawny
       final response = await http.get(
-        Uri.parse('$_apiBaseUrl/Challenges/${widget.challengeId}'), 
+        Uri.parse('$_apiBaseUrl/Challenges/${widget.challengeId}'),
         headers: {'Authorization': 'Bearer $token'},
       );
 
@@ -207,7 +196,8 @@ class _ChallengeAdminPageState extends State<ChallengeAdminPage> {
         _datasetUrlController.text = _challenge!.datasetUrl ?? '';
         _selectedDeadline = _challenge!.submissionDeadline;
       } else {
-        _apiError = 'Błąd pobierania danych: ${response.statusCode} - ${response.body}';
+        _apiError =
+            'Błąd pobierania danych: ${response.statusCode} - ${response.body}';
       }
     } catch (e) {
       _apiError = 'Błąd sieci: $e';
@@ -222,18 +212,22 @@ class _ChallengeAdminPageState extends State<ChallengeAdminPage> {
     if (token == null) return;
 
     try {
-      // Endpoint zgodny z Twoją nową dokumentacją
+      // Endpoint zgodny z Twoim CUrl: /Admin/submissions/challenges/{id}
       final response = await http.get(
-        Uri.parse('$_apiBaseUrl/Admin/submissions/challenges/${widget.challengeId}'),
+        Uri.parse(
+            '$_apiBaseUrl/Admin/submissions/challenges/${widget.challengeId}'),
         headers: {
           'Authorization': 'Bearer $token',
-          'Accept': 'text/plain' // Prosimy o JSON
+          // --- POPRAWKA: Prosimy o JSON, a nie text/plain ---
+          'Accept': 'application/json'
         },
       );
-        print("To moj url: $_apiBaseUrl/Admin/submissions/challenges/${widget.challengeId}");
+      print(
+          "To moj url: $_apiBaseUrl/Admin/submissions/challenges/${widget.challengeId}");
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body) ?? [];
-        final newSubmissions = data.map((json) => Submission.fromJson(json)).toList();
+        final newSubmissions =
+            data.map((json) => Submission.fromJson(json)).toList();
 
         setState(() {
           _submissionsPage = page;
@@ -242,17 +236,18 @@ class _ChallengeAdminPageState extends State<ChallengeAdminPage> {
           _hasMoreSubmissions = newSubmissions.length == 10;
         });
       } else {
-         _showError('Błąd pobierania zgłoszeń: ${response.statusCode}');
+        _showError('Błąd pobierania zgłoszeń: ${response.statusCode}');
       }
     } catch (e) {
       _showError('Błąd sieci (zgłoszenia): $e');
+      print('Błąd sieci (zgłoszenia): $e');
     }
     setState(() => _isLoadingSubmissions = false);
   }
 
   /// Zapisuje zmiany w wyzwaniu (PUT)
   Future<void> _saveChallenge({bool exit = false}) async {
-    if (!_formKey.currentState!.validate()) return; 
+    if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isSaving = true);
     final token = await _getToken();
@@ -273,16 +268,27 @@ class _ChallengeAdminPageState extends State<ChallengeAdminPage> {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
         },
-        body: json.encode(_challenge!.toJson()), // Zakładamy, że PUT wysyła ten sam model co GET
+        body: {
+            "name": _challenge!.title,
+            "shortDescription": "",
+            "fullDescription": _challenge!.description,
+            "rules": "",
+            "evaluationMetric": _challenge!.evaluationMetric,
+            "startDate": "",
+            "endDate": _challenge!.submissionDeadline,
+            "isActive": true
+},
       );
 
       if (response.statusCode == 200 || response.statusCode == 204) {
         setState(() => _isEditing = false);
         if (exit && context.mounted) {
-          context.go('/dashboard'); 
+          context.go('/dashboard');
         }
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Zapisano pomyślnie!'), backgroundColor: Colors.green),
+          const SnackBar(
+              content: Text('Zapisano pomyślnie!'),
+              backgroundColor: Colors.green),
         );
       } else {
         _showError('Błąd zapisu: ${response.statusCode} - ${response.body}');
@@ -299,14 +305,20 @@ class _ChallengeAdminPageState extends State<ChallengeAdminPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Potwierdź usunięcie'),
-        content: Text('Czy na pewno chcesz trwale usunąć wyzwanie "${_challenge?.title}"?'),
+        content: Text(
+            'Czy na pewno chcesz trwale usunąć wyzwanie "${_challenge?.title}"?'),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Anuluj')),
-          TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Usuń', style: TextStyle(color: Colors.red))),
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Anuluj')),
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child:
+                  const Text('Usuń', style: TextStyle(color: Colors.red))),
         ],
       ),
     );
-    if (confirmed != true) return; 
+    if (confirmed != true) return;
 
     setState(() => _isSaving = true);
     final token = await _getToken();
@@ -321,13 +333,16 @@ class _ChallengeAdminPageState extends State<ChallengeAdminPage> {
 
       if (response.statusCode == 200 || response.statusCode == 204) {
         if (context.mounted) {
-          context.go('/dashboard'); 
+          context.go('/dashboard');
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Wyzwanie usunięte.'), backgroundColor: Colors.green),
+            const SnackBar(
+                content: Text('Wyzwanie usunięte.'),
+                backgroundColor: Colors.green),
           );
         }
       } else {
         _showError('Błąd usuwania: ${response.statusCode} - ${response.body}');
+        print('Blad usuwania:  ${response.statusCode} - ${response.body} ');
       }
     } catch (e) {
       _showError('Błąd sieci: $e');
@@ -336,18 +351,19 @@ class _ChallengeAdminPageState extends State<ChallengeAdminPage> {
   }
 
   /// Zapisuje nową ocenę dla zgłoszenia
-  Future<void> _gradeSubmission(int submissionId, String score) async {
+  // --- POPRAWKA: ID jest teraz Stringiem ---
+  Future<void> _gradeSubmission(String submissionId, String score) async {
     final token = await _getToken();
     if (token == null) return;
-    
+
     final double? scoreValue = double.tryParse(score);
     if (scoreValue == null) {
       _showError('Ocena musi być liczbą');
       return;
     }
-    
+
     // TODO: Sprawdź, czy API /api/Admin/submissions/{id}/grade istnieje
-    final url = '$_apiBaseUrl/Admin/submissions/$submissionId/grade'; 
+    final url = '$_apiBaseUrl/Admin/submissions/$submissionId/score';
 
     try {
       final response = await http.post(
@@ -391,7 +407,7 @@ class _ChallengeAdminPageState extends State<ChallengeAdminPage> {
               onPressed: () async {
                 await TokenStorage.deleteToken();
                 if (context.mounted) {
-                  context.go('/'); 
+                  context.go('/');
                 }
               },
               icon: const Icon(Icons.logout, color: Colors.white),
@@ -415,7 +431,8 @@ class _ChallengeAdminPageState extends State<ChallengeAdminPage> {
       return const Center(child: CircularProgressIndicator());
     }
     if (_apiError != null) {
-      return Center(child: Text(_apiError!, style: const TextStyle(color: Colors.red)));
+      return Center(
+          child: Text(_apiError!, style: const TextStyle(color: Colors.red)));
     }
     if (_challenge == null) {
       return const Center(child: Text('Nie udało się wczytać wyzwania.'));
@@ -428,11 +445,13 @@ class _ChallengeAdminPageState extends State<ChallengeAdminPage> {
         children: [
           _buildHeaderButtons(),
           const Divider(height: 24, thickness: 1),
-          Text('Edycja Wyzwania', style: Theme.of(context).textTheme.headlineMedium),
+          Text('Edycja Wyzwania',
+              style: Theme.of(context).textTheme.headlineMedium),
           const SizedBox(height: 16),
           _buildChallengeForm(),
           const Divider(height: 24, thickness: 1),
-          Text('Zgłoszenia Użytkowników', style: Theme.of(context).textTheme.headlineMedium),
+          Text('Zgłoszenia Użytkowników',
+              style: Theme.of(context).textTheme.headlineMedium),
           const SizedBox(height: 16),
           _buildSubmissionsTable(),
         ],
@@ -448,7 +467,8 @@ class _ChallengeAdminPageState extends State<ChallengeAdminPage> {
         color: Colors.grey.shade100,
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Wrap( // Użyj Wrap dla responsywności
+      child: Wrap(
+        // Użyj Wrap dla responsywności
         spacing: 12,
         runSpacing: 12,
         alignment: WrapAlignment.center,
@@ -458,29 +478,36 @@ class _ChallengeAdminPageState extends State<ChallengeAdminPage> {
             icon: Icon(_isEditing ? Icons.cancel : Icons.edit),
             label: Text(_isEditing ? 'Anuluj' : 'Edytuj'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: _isEditing ? Colors.grey : Theme.of(context).colorScheme.primary,
-              foregroundColor: Colors.white
-            ),
+                backgroundColor: _isEditing
+                    ? Colors.grey
+                    : Theme.of(context).colorScheme.primary,
+                foregroundColor: Colors.white),
             onPressed: () => setState(() => _isEditing = !_isEditing),
           ),
           // Przycisk ZAPISZ
-          ElevatedButton.icon(
-            icon: _isSaving ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.save),
-            label: const Text('Zapisz'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.primary,
-              foregroundColor: Colors.white
-            ),
-            onPressed: _isEditing ? () => _saveChallenge(exit: false) : null, // Włączony tylko w trybie edycji
-          ),
+        //   ElevatedButton.icon(
+        //     icon: _isSaving
+        //         ? const SizedBox(
+        //             width: 20,
+        //             height: 20,
+        //             child: CircularProgressIndicator(
+        //                 strokeWidth: 2, color: Colors.white))
+        //         : const Icon(Icons.save),
+        //     label: const Text('Zapisz'),
+        //     style: ElevatedButton.styleFrom(
+        //         backgroundColor: Theme.of(context).colorScheme.primary,
+        //         foregroundColor: Colors.white),
+        //     onPressed: _isEditing
+        //         ? () => _saveChallenge(exit: false)
+        //         : null, // Włączony tylko w trybie edycji
+        //   ),
           // Przycisk ZAPISZ I WYJDŹ
           ElevatedButton.icon(
             icon: const Icon(Icons.save_as),
             label: const Text('Zapisz i Wyjdź'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.primary,
-              foregroundColor: Colors.white
-            ),
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Colors.white),
             onPressed: _isEditing ? () => _saveChallenge(exit: true) : null,
           ),
           // Przycisk USUŃ
@@ -488,9 +515,7 @@ class _ChallengeAdminPageState extends State<ChallengeAdminPage> {
             icon: const Icon(Icons.delete_forever),
             label: const Text('Usuń Wyzwanie'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white
-            ),
+                backgroundColor: Colors.red, foregroundColor: Colors.white),
             onPressed: _deleteChallenge,
           ),
         ],
@@ -508,14 +533,17 @@ class _ChallengeAdminPageState extends State<ChallengeAdminPage> {
           TextFormField(
             controller: _titleController,
             readOnly: !_isEditing,
-            decoration: const InputDecoration(labelText: 'Tytuł Wyzwania', border: OutlineInputBorder()),
-            validator: (value) => (value == null || value.isEmpty) ? 'Tytuł jest wymagany' : null,
+            decoration: const InputDecoration(
+                labelText: 'Tytuł Wyzwania', border: OutlineInputBorder()),
+            validator: (value) =>
+                (value == null || value.isEmpty) ? 'Tytuł jest wymagany' : null,
           ),
           const SizedBox(height: 16),
           TextFormField(
             controller: _descriptionController,
             readOnly: !_isEditing,
-            decoration: const InputDecoration(labelText: 'Opis', border: OutlineInputBorder()),
+            decoration: const InputDecoration(
+                labelText: 'Opis', border: OutlineInputBorder()),
             maxLines: 5,
           ),
           const SizedBox(height: 16),
@@ -529,46 +557,54 @@ class _ChallengeAdminPageState extends State<ChallengeAdminPage> {
                 child: TextFormField(
                   controller: _metricController,
                   readOnly: !_isEditing,
-                  decoration: const InputDecoration(labelText: 'Metryka Oceny (np. accuracy)', border: OutlineInputBorder()),
+                  decoration: const InputDecoration(
+                      labelText: 'Metryka Oceny (np. accuracy)',
+                      border: OutlineInputBorder()),
                 ),
               ),
               // Wybór daty
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey.shade400),
-                  borderRadius: BorderRadius.circular(4)
-                ),
+                    border: Border.all(color: Colors.grey.shade400),
+                    borderRadius: BorderRadius.circular(4)),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text('Deadline:', style: TextStyle(fontSize: 12)),
                     TextButton.icon(
                       icon: const Icon(Icons.calendar_today),
-                      label: Text(DateFormat('yyyy-MM-dd HH:mm').format(_selectedDeadline)),
-                      onPressed: !_isEditing ? null : () async {
-                        final newDate = await showDatePicker(
-                          context: context,
-                          initialDate: _selectedDeadline,
-                          firstDate: DateTime.now(),
-                          lastDate: DateTime.now().add(const Duration(days: 365)),
-                        );
-                        if (newDate != null) {
-                          // Pozwól na wybór godziny
-                          final newTime = await showTimePicker(
-                            context: context,
-                            initialTime: TimeOfDay.fromDateTime(_selectedDeadline)
-                          );
-                          if (newTime != null) {
-                            setState(() {
-                              _selectedDeadline = DateTime(
-                                newDate.year, newDate.month, newDate.day,
-                                newTime.hour, newTime.minute
+                      label: Text(
+                          DateFormat('yyyy-MM-dd HH:mm').format(_selectedDeadline)),
+                      onPressed: !_isEditing
+                          ? null
+                          : () async {
+                              final newDate = await showDatePicker(
+                                context: context,
+                                initialDate: _selectedDeadline,
+                                firstDate: DateTime.now(),
+                                lastDate:
+                                    DateTime.now().add(const Duration(days: 365)),
                               );
-                            });
-                          }
-                        }
-                      },
+                              if (newDate != null) {
+                                // Pozwól na wybór godziny
+                                final newTime = await showTimePicker(
+                                    context: context,
+                                    initialTime:
+                                        TimeOfDay.fromDateTime(_selectedDeadline));
+                                if (newTime != null) {
+                                  setState(() {
+                                    _selectedDeadline = DateTime(
+                                        newDate.year,
+                                        newDate.month,
+                                        newDate.day,
+                                        newTime.hour,
+                                        newTime.minute);
+                                  });
+                                }
+                              }
+                            },
                     ),
                   ],
                 ),
@@ -583,23 +619,27 @@ class _ChallengeAdminPageState extends State<ChallengeAdminPage> {
   /// Buduje tabelę zgłoszeń (ZAKTUALIZOWANA)
   Widget _buildSubmissionsTable() {
     if (_isLoadingSubmissions && _submissions.isEmpty) {
-      return const Center(child: Padding(padding: EdgeInsets.all(16.0), child: CircularProgressIndicator()));
+      return const Center(
+          child: Padding(
+              padding: EdgeInsets.all(16.0), child: CircularProgressIndicator()));
     }
     if (_submissions.isEmpty) {
-      return const Center(child: Padding(padding: EdgeInsets.all(16.0), child: Text('Brak zgłoszeń do wyświetlenia.')));
+      return const Center(
+          child: Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Text('Brak zgłoszeń do wyświetlenia.')));
     }
 
     return Column(
       children: [
-        LayoutBuilder(
-          builder: (context, constraints) {
-            if (constraints.maxWidth > 700) { // Zwiększyłem próg dla lepszej tabeli
-              return _buildDataTable();
-            } else {
-              return _buildDataList();
-            }
+        LayoutBuilder(builder: (context, constraints) {
+          if (constraints.maxWidth > 700) {
+            // Zwiększyłem próg dla lepszej tabeli
+            return _buildDataTable();
+          } else {
+            return _buildDataList();
           }
-        ),
+        }),
       ],
     );
   }
@@ -610,7 +650,7 @@ class _ChallengeAdminPageState extends State<ChallengeAdminPage> {
       children: [
         DataTable(
           columns: const [
-            DataColumn(label: Text('Info')), // Kto/Co
+            DataColumn(label: Text('Plik')), // Zamiast Info
             DataColumn(label: Text('Data')),
             DataColumn(label: Text('Status')),
             DataColumn(label: Text('Ocena')),
@@ -618,20 +658,19 @@ class _ChallengeAdminPageState extends State<ChallengeAdminPage> {
           ],
           rows: _submissions.map((sub) {
             return DataRow(cells: [
-              // Pokaż ID usera lub Nazwę wyzwania
-              DataCell(Text(sub.userId ?? sub.challengeName ?? 'ID: ${sub.id}')),
+              // --- ZMIANA: Pokaż fileName ---
+              DataCell(Text(sub.fileName ?? 'ID: ${sub.id}')),
               DataCell(Text(DateFormat('MM-dd HH:mm').format(sub.submittedAt))),
-              // Pokaż status lub błąd
               DataCell(
-                // --- 1. POPRAWKA DLA TOOLTIP ---
                 Tooltip(
-                  message: sub.errorMessage ?? 'Brak błędu',
-                  child: Text(
-                    sub.status ?? '', 
-                    style: TextStyle(color: sub.errorMessage != null ? Colors.red : Colors.green)
-                  ),
+                  // API nie zwraca 'errorMessage', więc pokazuj status
+                  message: sub.status ?? 'Brak statusu',
+                  child: Text(sub.status ?? '',
+                      style: TextStyle(
+                          color: sub.status == 'Error'
+                              ? Colors.red
+                              : Colors.green)),
                 ),
-                // 'tooltip: sub.errorMessage,' <- Usunięto niepoprawny parametr stąd
               ),
               DataCell(
                 SizedBox(
@@ -640,7 +679,8 @@ class _ChallengeAdminPageState extends State<ChallengeAdminPage> {
                     initialValue: sub.score?.toString() ?? '',
                     decoration: const InputDecoration(labelText: 'Ocena'),
                     keyboardType: TextInputType.number,
-                    onFieldSubmitted: (value) => _gradeSubmission(sub.id, value),
+                    onFieldSubmitted: (value) =>
+                        _gradeSubmission(sub.id, value),
                   ),
                 ),
               ),
@@ -648,23 +688,27 @@ class _ChallengeAdminPageState extends State<ChallengeAdminPage> {
                 IconButton(
                   icon: const Icon(Icons.download),
                   tooltip: 'Pobierz plik',
-                  // Przycisk działa tylko jeśli API zwróci 'fileUrl'
-                  onPressed: sub.fileUrl == null ? null : () {
-                    print('Pobieranie: ${sub.fileUrl}');
-                    // TODO: Użyj url_launcher do pobrania pliku
-                  },
+                  // --- ZMIANA: Logika pobierania ---
+                  // TODO: Backend musi wysłać URL do pobrania, nie tylko nazwę pliku
+                  // Na razie przycisk jest wyłączony
+                  onPressed: null,
+                  // onPressed: sub.fileName == null ? null : () {
+                  //   print('Pobieranie: ${sub.fileName}');
+                  //   // TODO: Potrzebujesz endpointu GET /api/Admin/submissions/download/{submissionId}
+                  // },
                 ),
               ),
             ]);
           }).toList(),
         ),
         if (_hasMoreSubmissions)
-          _isLoadingSubmissions 
-            ? const Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator())
-            : TextButton(
-                onPressed: () => _fetchSubmissions(page: _submissionsPage + 1),
-                child: const Text('Wczytaj więcej...'),
-              )
+          _isLoadingSubmissions
+              ? const Padding(
+                  padding: EdgeInsets.all(16), child: CircularProgressIndicator())
+              : TextButton(
+                  onPressed: () => _fetchSubmissions(page: _submissionsPage + 1),
+                  child: const Text('Wczytaj więcej...'),
+                )
       ],
     );
   }
@@ -679,11 +723,17 @@ class _ChallengeAdminPageState extends State<ChallengeAdminPage> {
         itemBuilder: (context, index) {
           if (index == _submissions.length) {
             return _isLoadingSubmissions
-              ? const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()))
-              : const Center(child: Padding(padding: EdgeInsets.all(8.0), child: Text('Koniec listy')));
+                ? const Center(
+                    child: Padding(
+                        padding: EdgeInsets.all(16),
+                        child: CircularProgressIndicator()))
+                : const Center(
+                    child: Padding(
+                        padding: EdgeInsets.all(8.0),
+                        child: Text('Koniec listy')));
           }
-          
-          final submission = _submissions[index]; // Zmienna nazywa się 'submission'
+
+          final submission = _submissions[index];
           return Card(
             margin: const EdgeInsets.symmetric(vertical: 4),
             child: Padding(
@@ -691,31 +741,29 @@ class _ChallengeAdminPageState extends State<ChallengeAdminPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // --- 2. POPRAWKA LITERÓWKI (sub -> submission) ---
-                  Text('Info: ${submission.userId ?? submission.challengeName ?? 'ID: ${submission.id}'}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  // --- ZMIANA: Pokaż fileName ---
+                  Text('Plik: ${submission.fileName ?? 'ID: ${submission.id}'}',
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
                   Text('Zgłoszono: ${DateFormat('yyyy-MM-dd HH:mm').format(submission.submittedAt)}'),
                   Text('Status: ${submission.status ?? 'Brak'}'),
-                  if (submission.errorMessage != null)
-                    Text('Błąd: ${submission.errorMessage!}', style: const TextStyle(color: Colors.red)),
-                  // ----------------------------------------------
                   const SizedBox(height: 8),
                   Row(
                     children: [
                       Expanded(
                         child: TextFormField(
                           initialValue: submission.score?.toString() ?? '',
-                          decoration: const InputDecoration(labelText: 'Ocena', border: OutlineInputBorder()),
+                          decoration: const InputDecoration(
+                              labelText: 'Ocena', border: OutlineInputBorder()),
                           keyboardType: TextInputType.number,
-                          onFieldSubmitted: (value) => _gradeSubmission(submission.id, value),
+                          onFieldSubmitted: (value) =>
+                              _gradeSubmission(submission.id, value),
                         ),
                       ),
                       IconButton(
                         icon: const Icon(Icons.download),
                         tooltip: 'Pobierz plik',
-                        onPressed: submission.fileUrl == null ? null : () {
-                          print('Pobieranie: ${submission.fileUrl}');
-                          // TODO: Użyj url_launcher do pobrania pliku
-                        },
+                        // --- ZMIANA: Logika pobierania ---
+                        onPressed: null, // Na razie wyłączone
                       ),
                     ],
                   ),
