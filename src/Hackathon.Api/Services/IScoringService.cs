@@ -8,6 +8,11 @@ public interface IScoringService
     Task<decimal> EvaluateSubmissionAsync(string submissionId);
 
     /// <summary>
+    /// Automatycznie ocenia submission (przeciążenie z obiektem)
+    /// </summary>
+    Task<decimal> EvaluateSubmissionAsync(Models.Submission submission);
+
+    /// <summary>
     /// Ręcznie ocenia submission (przez admina/sędziego)
     /// </summary>
     Task ManuallyScoreSubmissionAsync(string submissionId, decimal score, string? notes, string evaluatorId);

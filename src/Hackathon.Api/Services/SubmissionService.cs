@@ -125,12 +125,13 @@ public class SubmissionService : ISubmissionService
 
         _logger.LogInformation($"Submission {submissionId} created for user {userId} on challenge {challengeId}");
 
-        // 7. Asynchroniczne uruchomienie oceniania w tle
+        // 7. Asynchroniczne uruchomienie oceniania w tle - przekaż obiekt submission
+        var submissionCopy = submission;
         _ = Task.Run(async () =>
         {
             try
             {
-                await EvaluateSubmissionAsync(submissionId);
+                await _scoringService.EvaluateSubmissionAsync(submissionCopy);
             }
             catch (Exception ex)
             {
