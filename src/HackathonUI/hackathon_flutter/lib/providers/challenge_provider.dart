@@ -112,6 +112,21 @@ class ChallengeProvider with ChangeNotifier {
     }
   }
 
+  Future<void> forceRefreshChallenges() async {
+      _challengesLoaded = false; // To jest klucz! Resetujemy flagę cache'u.
+      _allChallenges.clear(); // Czyścimy starą listę.
+      _currentPage = 1; // Wracamy na pierwszą stronę.
+      _stateLoaded = false; // Wymuś ponowne wczytanie stanu (strony)
+
+      // Opcjonalnie: wyczyść zapamiętaną stronę z cache'u
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_pageCacheKey);
+
+      print('[ChallengeProvider] Pamięć cache unieważniona. Gotowy do odświeżenia.');
+      // Nie trzeba wołać notifyListeners() ani loadChallengesFromApi() tutaj.
+      // Zrobi to 'loadStateFromCache()' na DashboardPage.
+    }
+
   // cachowanie danych o stronie
   /// Wczytuje ostatnio zapisany numer strony z pamięci przeglądarki
   Future<void> loadStateFromCache() async {
@@ -194,6 +209,77 @@ class ChallengeProvider with ChangeNotifier {
       }
     } catch (e) {
       print('Błąd zapytania /api/Challenges/$challengeId: $e');
+      return null;
+    }
+  }
+
+  /// Pobiera nazwę użytkownika na podstawie userId
+  /// Używa tokenu tego użytkownika do autoryzacji
+  Future<String?> fetchUserNameById(String userId) async {
+    // Generujemy token dla tego użytkownika (w rzeczywistości to nie zadziała tak prosto)
+    // Ale zgodnie z wymaganiem, użyjemy /api/Me z tokenem w headerze
+    final token = await TokenStorage.getToken();
+    if (token == null) {
+      print('Brak tokenu dla /api/Me');
+      return null;
+    }
+
+    final url = Uri.parse('http://localhost:5043/api/Me');
+    try {
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body) as Map<String, dynamic>;
+        // Sprawdź czy to właściwy użytkownik
+        if (data['id'] == userId || data['userId'] == userId) {
+          return data['displayName'] ?? data['email'] ?? data['username'] ?? data['name'];
+        }
+        return null;
+      } else {
+        print('Błąd: status ${response.statusCode}');
+        return null;
+      }
+    } catch (e) {
+      print('Błąd zapytania /api/Me: $e');
+      return null;
+    }
+  }
+
+  /// Pobiera leaderboard dla danego wyzwania
+  Future<List<Map<String, dynamic>>?> fetchLeaderboard(String challengeId) async {
+    final token = await TokenStorage.getToken();
+    if (token == null) {
+      print('Brak tokenu dla /api/Leaderboard/$challengeId');
+      return null;
+    }
+
+    final url = Uri.parse('http://localhost:5043/api/Leaderboard/$challengeId');
+    try {
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      print('Odpowiedź /api/Leaderboard/$challengeId: ${response.body}');
+      print('Status code: ${response.statusCode}');
+      
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        return data.cast<Map<String, dynamic>>();
+      } else {
+        print('Błąd: status ${response.statusCode}');
+        return null;
+      }
+    } catch (e) {
+      print('Błąd zapytania /api/Leaderboard/$challengeId: $e');
       return null;
     }
   }
