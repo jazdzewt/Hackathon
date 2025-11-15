@@ -7,7 +7,7 @@ namespace Hackathon.Api.Models;
 public class Challenge : BaseModel
 {
     [PrimaryKey("id", false)]
-    public string Id { get; set; } = Guid.NewGuid().ToString();
+    public string Id { get; set; } = string.Empty; // Baza generuje UUID automatycznie
 
     [Column("title")]
     public string Title { get; set; } = string.Empty;
@@ -20,6 +20,9 @@ public class Challenge : BaseModel
 
     [Column("dataset_url")]
     public string? DatasetUrl { get; set; }
+
+    [Column("ground_truth_url")]
+    public string? GroundTruthUrl { get; set; }
 
     [Column("submission_deadline")]
     public DateTime SubmissionDeadline { get; set; }

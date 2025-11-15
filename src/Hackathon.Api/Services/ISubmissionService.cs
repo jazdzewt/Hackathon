@@ -4,8 +4,8 @@ namespace Hackathon.Api.Services;
 
 public interface ISubmissionService
 {
-    Task<int> SubmitSolutionAsync(int challengeId, string userId, Stream fileStream, string fileName);
+    Task<string> SubmitSolutionAsync(string challengeId, string userId, IFormFile file);
     Task<IEnumerable<SubmissionDto>> GetUserSubmissionsAsync(string userId);
-    Task<IEnumerable<SubmissionDto>> GetChallengeSubmissionsAsync(int challengeId);
-    Task RejudgeSubmissionAsync(int submissionId);
+    Task<IEnumerable<SubmissionDto>> GetChallengeSubmissionsAsync(string challengeId);
+    Task EvaluateSubmissionAsync(string submissionId);
 }
