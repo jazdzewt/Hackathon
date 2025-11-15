@@ -198,6 +198,77 @@ class ChallengeProvider with ChangeNotifier {
     }
   }
 
+  /// Pobiera nazwę użytkownika na podstawie userId
+  /// Używa tokenu tego użytkownika do autoryzacji
+  Future<String?> fetchUserNameById(String userId) async {
+    // Generujemy token dla tego użytkownika (w rzeczywistości to nie zadziała tak prosto)
+    // Ale zgodnie z wymaganiem, użyjemy /api/Me z tokenem w headerze
+    final token = await TokenStorage.getToken();
+    if (token == null) {
+      print('Brak tokenu dla /api/Me');
+      return null;
+    }
+
+    final url = Uri.parse('http://localhost:5043/api/Me');
+    try {
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body) as Map<String, dynamic>;
+        // Sprawdź czy to właściwy użytkownik
+        if (data['id'] == userId || data['userId'] == userId) {
+          return data['displayName'] ?? data['email'] ?? data['username'] ?? data['name'];
+        }
+        return null;
+      } else {
+        print('Błąd: status ${response.statusCode}');
+        return null;
+      }
+    } catch (e) {
+      print('Błąd zapytania /api/Me: $e');
+      return null;
+    }
+  }
+
+  /// Pobiera leaderboard dla danego wyzwania
+  Future<List<Map<String, dynamic>>?> fetchLeaderboard(String challengeId) async {
+    final token = await TokenStorage.getToken();
+    if (token == null) {
+      print('Brak tokenu dla /api/Leaderboard/$challengeId');
+      return null;
+    }
+
+    final url = Uri.parse('http://localhost:5043/api/Leaderboard/$challengeId');
+    try {
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      print('Odpowiedź /api/Leaderboard/$challengeId: ${response.body}');
+      print('Status code: ${response.statusCode}');
+      
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        return data.cast<Map<String, dynamic>>();
+      } else {
+        print('Błąd: status ${response.statusCode}');
+        return null;
+      }
+    } catch (e) {
+      print('Błąd zapytania /api/Leaderboard/$challengeId: $e');
+      return null;
+    }
+  }
+
   /// Przesyła rozwiązanie (plik) do wyzwania
   /// Zwraca null jeśli sukces, lub String z komunikatem błędu
   Future<String?> submitSolution(String challengeId, html.File file) async {
