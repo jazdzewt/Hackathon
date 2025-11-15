@@ -34,28 +34,72 @@ public class AdminController : ControllerBase
     [HttpPost("challenges")]
     public async Task<IActionResult> CreateChallenge([FromBody] CreateChallengeDto dto)
     {
-        // TODO: Implementacja tworzenia wyzwania
-        return Ok(new { message = "Challenge created successfully" });
+        try
+        {
+            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            
+            var challenge = new Models.Challenge
+            {
+                Id = Guid.NewGuid().ToString(),
+                Title = dto.Name,
+                Description = dto.FullDescription,
+                EvaluationMetric = dto.EvaluationMetric,
+                SubmissionDeadline = dto.EndDate ?? dto.StartDate.AddMonths(1),
+                IsActive = true,
+                CreatedBy = userId,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            await _challengeService.CreateChallengeAsync(challenge);
+            
+            return Ok(new { message = "Challenge created successfully", id = challenge.Id });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Error creating challenge", error = ex.Message });
+        }
     }
 
     /// <summary>
     /// Edytuje istniejące wyzwanie
     /// </summary>
     [HttpPut("challenges/{id}")]
-    public async Task<IActionResult> UpdateChallenge(int id, [FromBody] UpdateChallengeDto dto)
+    public async Task<IActionResult> UpdateChallenge(string id, [FromBody] UpdateChallengeDto dto)
     {
-        // TODO: Implementacja edycji wyzwania
-        return Ok(new { message = "Challenge updated successfully" });
+        try
+        {
+            await _challengeService.UpdateChallengeAsync(id, dto);
+            return Ok(new { message = "Challenge updated successfully" });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Error updating challenge", error = ex.Message });
+        }
     }
 
     /// <summary>
     /// Usuwa wyzwanie
     /// </summary>
     [HttpDelete("challenges/{id}")]
-    public async Task<IActionResult> DeleteChallenge(int id)
+    public async Task<IActionResult> DeleteChallenge(string id)
     {
-        // TODO: Implementacja usuwania wyzwania
-        return Ok(new { message = "Challenge deleted successfully" });
+        try
+        {
+            await _challengeService.DeleteChallengeAsync(id);
+            return Ok(new { message = "Challenge deleted successfully" });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Error deleting challenge", error = ex.Message });
+        }
     }
 
     /// <summary>
