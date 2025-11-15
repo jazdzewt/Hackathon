@@ -6,6 +6,7 @@ import 'pages/landing.dart';
 import 'theme/colors.dart';
 import 'package:go_router/go_router.dart';
 import 'pages/register.dart';
+import 'services/token_storage.dart';
 
 void main() {
   runApp(ChangeNotifierProvider(
@@ -43,6 +44,25 @@ class MyApp extends StatelessWidget {
         //   },
         // ),
       ],
+      redirect: (context, state) async {
+        final String location = state.matchedLocation;
+        final bool loggedIn = await TokenStorage.isLoggedIn();
+
+        final bool goingToAuthFree =
+            location == '/' || location == '/register';
+
+        // Not logged in and trying to access protected route → go to login
+        if (!loggedIn && location.startsWith('/dashboard')) {
+          return '/';
+        }
+
+        // Logged in and on auth pages → push to dashboard
+        if (loggedIn && goingToAuthFree) {
+          return '/dashboard';
+        }
+
+        return null; // no redirect
+      },
     );
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,

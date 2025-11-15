@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import '../providers/challenge_provider.dart';
 import 'package:go_router/go_router.dart';
 
-
 class Challenge {
   final String id;
   final String title;

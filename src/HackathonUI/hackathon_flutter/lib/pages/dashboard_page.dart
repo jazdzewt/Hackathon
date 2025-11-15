@@ -4,6 +4,8 @@ import '../widgets/challenge_list_widget.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:provider/provider.dart';
 import '../providers/challenge_provider.dart';
+import 'package:go_router/go_router.dart';
+import '../services/token_storage.dart';
 
 
 class DashboardPage extends StatefulWidget {
@@ -42,6 +44,24 @@ class _DashboardPageState extends State<DashboardPage> {
       appBar: AppBar(
         title: const Text('Witaj na stronie Hackathonu Goldman Sachs!'),
         centerTitle: true,
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 16.0),
+            child: TextButton.icon(
+              onPressed: () async {
+                await TokenStorage.deleteToken();
+                if (context.mounted) {
+                  context.go('/');
+                }
+              },
+              icon: const Icon(Icons.logout, color: Colors.white),
+              label: const Text(
+                'Wyloguj się',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         child: Column(
